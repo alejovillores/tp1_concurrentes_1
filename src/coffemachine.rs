@@ -8,13 +8,12 @@ pub struct CoffeMachine {
 }
 
 impl CoffeMachine {
-    /// Creates a new [`CoffeMachine`].
     pub fn new() -> Self {
         let _coffe_made = 0;
         Self { _coffe_made }
     }
 
-    pub fn finished(&self, lock: &Mutex<bool>, cvar: &Condvar) -> Result<bool, String> {
+    fn finished(&self, lock: &Mutex<bool>, cvar: &Condvar) -> Result<bool, String> {
         if let Ok(guard) = lock.lock() {
             // As long as the value inside the `Mutex<bool>` is `true`, we wait
 
@@ -27,13 +26,17 @@ impl CoffeMachine {
         Err("[error] - machine ready monitor failed".to_string())
     }
 
-    pub fn notify_new_ticket(&self, lock: &Mutex<Ticket>, cvar: &Condvar) -> Result<(), String> {
+    fn notify_new_ticket(&self, lock: &Mutex<Ticket>, cvar: &Condvar) -> Result<(), String> {
         if let Ok(mut ticket) = lock.lock() {
             ticket.ready();
             cvar.notify_all();
             return Ok(());
         };
         Err("[error] - ticket monitor failed".to_string())
+    }
+
+    fn read_ticket(&self) -> Option<Ticket> {
+        Some(Ticket::new(10))
     }
 
     #[allow(dead_code)]
@@ -43,22 +46,35 @@ impl CoffeMachine {
             let (lock, cvar) = &*monitor;
             match self.finished(lock, cvar) {
                 Ok(_) => {
-                    // TODO: read new line
-                    // create ticket
-                    let _ticket = Ticket::new(10);
+                    println!("[coffe machine] - Coffe Machine is free for new tickets")
                 }
                 Err(e) => {
                     println!("{:?}", e);
                     break;
                 }
             }
+            // TODO: read new line
+            // create ticket
+            match self.read_ticket() {
+                Some(ticket) => {
+                    let ticket_monitor = Arc::new((Mutex::new(ticket), Condvar::new()));
+                    let (lock_ticket, cvar_ticket) = &*ticket_monitor;
+                    match self.notify_new_ticket(lock_ticket, cvar_ticket) {
+                        Ok(_) => {
+                            println!("[coffe machine] - Coffe Machine send new ticket")
+                        }
+                        Err(e) => {
+                            println!("{:?}", e);
+                            break;
+                        }
+                    }
+                }
+                None => {
+                    println!("[coffe machine] - Coffe Machine finished.");
+                    break;
+                }
+            }
         }
-
-        // release semaphore
-
-        // send ticket to mutex for dispensers
-
-        // wait until all the dispensers have finished
     }
 }
 
