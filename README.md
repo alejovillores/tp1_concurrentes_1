@@ -14,9 +14,11 @@ Desglozando el enunciado noto que N dispensadores que tengo por cafetera son en 
 
 Para que la cafetera pueda procesar otro pedido, todos los dispensers deben haber terminado. Para eso, lo que se pensó es usar unas variables de condicion que espere a que todos los dispensers den ok.
 
-Primero comienzo con una cafeteria con 4 dispensers y recurso infinito.
+Primero comienzo con una cafeteria con 4 dispensers y recurso infinito.\
+El diagrama pensado fue el siguiente:
+![diagrama](model.diagram.png)
 
-
+Donde habrá un Thread por Dispenser y un thread por Container.
 
 
 ### _Test de Aceptacion_
@@ -24,7 +26,10 @@ Primero comienzo con una cafeteria con 4 dispensers y recurso infinito.
 
 ### _Test Unitarios_ 
 
+Para correr los test unitarios se debe ejecutar
 
+`cargo test`
 
+## _Extra_
 
-
+Para ejecutar ``cargo fmt``, ``cargo clippy`` y ``cargo test`` todo junto, se puede ejecutar `./pre-commit.sh`
