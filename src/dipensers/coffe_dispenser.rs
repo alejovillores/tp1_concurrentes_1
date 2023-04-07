@@ -17,9 +17,20 @@ impl CoffeDispenser {
         // imitate dispense
         thread::sleep(Duration::from_secs(amount as u64));
 
+        Ok(())
+    }
+
+    #[allow(dead_code)]
+    pub fn start(&self) {
+
+        // wait coffe struct smaphore
+        // read coffe amount
+        // wait until all dispensers have read amounts
+
+        // dispense
+
         // change dispenser flag to true for coffemachine
         // signal coffe machine
-        Ok(())
     }
 }
 
