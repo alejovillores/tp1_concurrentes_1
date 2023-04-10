@@ -10,7 +10,7 @@
 
 ### _Modelo y Resolución_ 
 
-Desglozando el enunciado noto que N dispensadores que tengo por cafetera son en realidad uno por cada accion ya que por la condicion de que "Un solo dispenser a por vez puede tomar ingredientes de cada contenedor, es decir, no es posible por ejemplo que dos disponsers tomen café concurrentemente" me hace pensar que como mucho puedo tener a teniendo cada dispensador funcionando en simultaneo.
+Desglozando el enunciado noto que N dispensadores que tengo por cafetera son en realidad uno por cada accion ya que por la condicion de que "Un solo dispenser a por vez puede tomar ingredientes de cada contenedor, es decir, no es posible por ejemplo que dos dispensers tomen café concurrentemente" me hace pensar que como mucho puedo tener a cada dispensador funcionando en simultaneo.
 
 Para que la cafetera pueda procesar otro pedido, todos los dispensers deben haber terminado. Para eso, lo que se pensó es usar unas variables de condicion que espere a que todos los dispensers den ok.
 
@@ -23,6 +23,7 @@ Donde habrá un Thread por Dispenser y un thread por Container.
 
 ### _Test de Aceptacion_
 
+> TODO: preguntar como hacerlos
 
 ### _Test Unitarios_ 
 
