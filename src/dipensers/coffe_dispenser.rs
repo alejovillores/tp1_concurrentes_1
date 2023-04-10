@@ -1,10 +1,12 @@
 use std::{
-    sync::{Condvar, Mutex, Arc},
+    sync::{Arc, Condvar, Mutex},
     thread,
     time::Duration,
 };
 
 use crate::ticket::Ticket;
+
+const END: i32 = 0;
 
 #[derive(Debug)]
 pub struct CoffeDispenser {}
@@ -16,23 +18,25 @@ impl CoffeDispenser {
 
     #[allow(dead_code)]
     fn dispense(&self, amount: i32) -> Result<(), std::fmt::Error> {
-        // should signal coffe container that amount of coffe is needed
-        // should wait for coffe container to allow me.
+        // TODO: should signal coffe container that amount of coffe is needed
+        // TODO: should wait for coffe container to allow me.
 
         // imitate dispense
+        println!("[coffe dispenser] - dispensing {} units of coffee", amount);
         thread::sleep(Duration::from_secs(amount as u64));
-
+        println!("[coffe dispenser] - coffe amount dispensed");
         Ok(())
     }
 
     #[allow(dead_code)]
     fn signal_finish(&self, lock: &Mutex<bool>, cvar: &Condvar) -> Result<(), String> {
-        if let Ok(mut ticket) = lock.lock() {
-            *ticket = false;
+        if let Ok(mut dispenser) = lock.lock() {
+            *dispenser = false;
             cvar.notify_all();
+            println!("[coffe dispenser] - send signal_finish");
             return Ok(());
         };
-        Err("[error] - ticket monitor failed in coffe dispenser".to_string())
+        Err("[error] - ticket monitor failed in coffee dispenser".to_string())
     }
 
     #[allow(dead_code)]
@@ -40,24 +44,41 @@ impl CoffeDispenser {
         if let Ok(guard) = lock.lock() {
             // As long as the value inside the `Mutex<bool>` is `true`, we wait
             if let Ok(ticket) = cvar.wait_while(guard, |status| status.is_not_ready()) {
-                // change flags to true
                 let coffe_amount = ticket.get_coffe_amount();
+                if coffe_amount >= END {
+                    println!("[coffe dispenser] - NEW TICKET ");
+                }
+
                 return Ok(coffe_amount);
             }
         };
         Err("[error] - machine ready monitor failed".to_string())
     }
 
-    pub fn start(&self,_machine_monitor: Arc<(Mutex<bool>, Condvar)>,_ticket_monitor: Arc<(Mutex<Ticket>, Condvar)>) {
+    pub fn start(
+        &self,
+        machine_monitor: Arc<(Mutex<bool>, Condvar)>,
+        ticket_monitor: Arc<(Mutex<Ticket>, Condvar)>,
+    ) {
+        loop {
+            let (lock_ticket, cvar_ticket) = &*ticket_monitor;
+            if let Ok(coffe_amount) = self.new_ticket(lock_ticket, cvar_ticket) {
+                if coffe_amount < 0 {
+                    println!("[coffe dispenser] - END ");
+                    break;
+                }
+                if self.dispense(coffe_amount).is_err() {
+                    println!("[coffe dispenser] - ERROR - KILLING THREAD ");
+                    break;
+                }
+            }
 
-        // wait coffe struct smaphore
-        // read coffe amount
-        // wait until all dispensers have read amounts
-
-        // dispense
-
-        // change dispenser flag to true for coffemachine
-        // signal coffe machine
+            // TODO: wait until all dispensers have read amounts (barrier)
+            let (lock, cvar) = &*machine_monitor;
+            if self.signal_finish(lock, cvar).is_err() {
+                println!("[coffe dispenser] - ERROR - KILLING THREAD ");
+            };
+        }
     }
 }
 

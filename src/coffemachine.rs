@@ -1,34 +1,41 @@
-use std::{sync::{Arc, Condvar, Mutex}, thread::{JoinHandle, self}};
+use std::{
+    sync::{Arc, Condvar, Mutex},
+    thread::{self, JoinHandle},
+};
 
-use crate::{ticket::Ticket, dipensers::coffe_dispenser::CoffeDispenser};
+use crate::{dipensers::coffe_dispenser::CoffeDispenser, ticket::Ticket};
+
+const DISPENSERS: usize = 1;
 
 #[derive(Debug)]
 pub struct CoffeMachine {
     coffe_made: i32,
-    dispensers: Vec<JoinHandle<()>>
 }
 
 impl CoffeMachine {
     pub fn new() -> Self {
         let coffe_made = 0;
-        let dispensers = Vec::with_capacity(1);
-        Self { coffe_made, dispensers }
+        Self { coffe_made }
     }
 
-    fn init_dispensers(&mut self, machine_monitor: Arc<(Mutex<bool>, Condvar)>,ticket_monitor: Arc<(Mutex<Ticket>, Condvar)>){
-        self.dispensers.push(thread::spawn(move || {
+    fn init_dispensers(
+        &mut self,
+        machine_monitor: Arc<(Mutex<bool>, Condvar)>,
+        ticket_monitor: Arc<(Mutex<Ticket>, Condvar)>,
+    ) -> Vec<JoinHandle<()>> {
+        let mut dispensers = Vec::with_capacity(DISPENSERS);
+        dispensers.push(thread::spawn(move || {
             let coffe_dispenser = CoffeDispenser::new();
-            coffe_dispenser.start(machine_monitor,ticket_monitor);
-            println!("[dispenser] - new dispenser avaliable")
+            coffe_dispenser.start(machine_monitor, ticket_monitor);
         }));
+
+        dispensers
     }
 
     fn finished(&self, lock: &Mutex<bool>, cvar: &Condvar) -> Result<bool, String> {
         if let Ok(guard) = lock.lock() {
             // As long as the value inside the `Mutex<bool>` is `true`, we wait
-
             if let Ok(mut _guard) = cvar.wait_while(guard, |status| *status) {
-                // change flags to true
                 *_guard = true;
                 return Ok(true);
             }
@@ -36,7 +43,12 @@ impl CoffeMachine {
         Err("[error] - machine ready monitor failed".to_string())
     }
 
-    fn notify_new_ticket(&self, lock: &Mutex<Ticket>, cvar: &Condvar, new_ticket: Ticket) -> Result<(), String> {
+    fn notify_new_ticket(
+        &self,
+        lock: &Mutex<Ticket>,
+        cvar: &Condvar,
+        new_ticket: Ticket,
+    ) -> Result<(), String> {
         if let Ok(mut ticket) = lock.lock() {
             *ticket = new_ticket;
             ticket.ready();
@@ -46,17 +58,28 @@ impl CoffeMachine {
         Err("[error] - ticket monitor failed".to_string())
     }
 
-    fn read_ticket(&self) -> Option<Ticket> {
+    fn read_ticket(&self, i: i32) -> Option<Ticket> {
+        if i == 4 {
+            return Some(Ticket::new(-1));
+        }
         Some(Ticket::new(10))
+    }
+
+    fn kill_dispensers(&self, dispensers: Vec<JoinHandle<()>>) {
+        for d in dispensers {
+            if d.join().is_ok() {
+                println!("[global]  - dispenser killed")
+            };
+        }
     }
 
     #[allow(dead_code)]
     pub fn start(&mut self) {
         let machine_monitor = Arc::new((Mutex::new(false), Condvar::new()));
         let ticket_monitor = Arc::new((Mutex::new(Ticket::new(0)), Condvar::new()));
-        self.init_dispensers(machine_monitor.clone(),ticket_monitor.clone());
+        let dispensers = self.init_dispensers(machine_monitor.clone(), ticket_monitor.clone());
 
-        loop {
+        for i in 0..5 {
             let (lock, cvar) = &*machine_monitor;
             match self.finished(lock, cvar) {
                 Ok(_) => {
@@ -70,12 +93,12 @@ impl CoffeMachine {
             }
             // TODO: read new line
             // create ticket
-            match self.read_ticket() {
+            match self.read_ticket(i) {
                 Some(ticket) => {
                     let (lock_ticket, cvar_ticket) = &*ticket_monitor;
-                    match self.notify_new_ticket(lock_ticket, cvar_ticket,ticket) {
+                    match self.notify_new_ticket(lock_ticket, cvar_ticket, ticket) {
                         Ok(_) => {
-                            println!("[coffe machine] - Coffe Machine send new ticket")
+                            println!("[coffe machine] - Coffe Machine send {} new ticket", i)
                         }
                         Err(e) => {
                             println!("{:?}", e);
@@ -89,6 +112,8 @@ impl CoffeMachine {
                 }
             }
         }
+        println!("[coffe machine] - Coffe Machine finished.");
+        self.kill_dispensers(dispensers);
     }
 }
 
@@ -135,14 +160,15 @@ mod coffemachine_test {
         let (lock_clone, cvar_clone) = &*monitor_clone;
 
         let _ = coffemachine
-            .notify_new_ticket(lock_clone, cvar_clone,new_ticket)
+            .notify_new_ticket(lock_clone, cvar_clone, new_ticket)
             .unwrap();
 
         if let Ok(guard) = lock.lock() {
             match cvar.wait_while(guard, |ticket: &mut Ticket| ticket.is_not_ready()) {
                 Ok(result) => {
                     assert!(!result.is_not_ready());
-                    assert_eq!(result.get_coffe_amount(),10)},
+                    assert_eq!(result.get_coffe_amount(), 10)
+                }
                 Err(_) => assert!(false),
             };
         } else {
@@ -156,7 +182,7 @@ mod coffemachine_test {
         let machine_monitor = Arc::new((Mutex::new(false), Condvar::new()));
         let ticket_monitor = Arc::new((Mutex::new(Ticket::new(0)), Condvar::new()));
 
-        coffemachine.init_dispensers(machine_monitor, ticket_monitor);
-        assert_eq!(coffemachine.dispensers.len(),1)
-    } 
+        let dispensers = coffemachine.init_dispensers(machine_monitor, ticket_monitor);
+        assert_eq!(dispensers.len(), 1)
+    }
 }
