@@ -62,7 +62,7 @@ impl CoffeMachine {
         if i == 4 {
             return Some(Ticket::new(-1));
         }
-        Some(Ticket::new(10))
+        Some(Ticket::new(3))
     }
 
     fn kill_dispensers(&self, dispensers: Vec<JoinHandle<()>>) {
@@ -73,7 +73,6 @@ impl CoffeMachine {
         }
     }
 
-    #[allow(dead_code)]
     pub fn start(&mut self) {
         let machine_monitor = Arc::new((Mutex::new(false), Condvar::new()));
         let ticket_monitor = Arc::new((Mutex::new(Ticket::new(0)), Condvar::new()));
