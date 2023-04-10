@@ -6,7 +6,10 @@ use std::{
 
 use std_semaphore::Semaphore;
 
-use crate::{ticket::Ticket, containers::{resourse::Resourse, coffe_container::CoffeContainer}};
+use crate::{
+    containers::{coffe_container::CoffeContainer, resourse::Resourse},
+    ticket::Ticket,
+};
 
 const END: i32 = 0;
 const CONTAINERS: usize = 1;
@@ -19,7 +22,6 @@ impl CoffeDispenser {
         Self {}
     }
 
- 
     fn dispense(&self, amount: i32) -> Result<(), std::fmt::Error> {
         // TODO: should signal coffe container that amount of coffe is needed
         // TODO: should wait for coffe container to allow me.
@@ -31,7 +33,6 @@ impl CoffeDispenser {
         Ok(())
     }
 
-    
     fn signal_finish(&self, lock: &Mutex<bool>, cvar: &Condvar) -> Result<(), String> {
         if let Ok(mut dispenser) = lock.lock() {
             *dispenser = false;
@@ -41,7 +42,6 @@ impl CoffeDispenser {
         };
         Err("[error] - ticket monitor failed in coffee dispenser".to_string())
     }
-
 
     fn new_ticket(&self, lock: &Mutex<Ticket>, cvar: &Condvar) -> Result<i32, String> {
         if let Ok(guard) = lock.lock() {
@@ -58,7 +58,12 @@ impl CoffeDispenser {
         Err("[error] - machine ready monitor failed".to_string())
     }
 
-    fn signal_container(&self, lock: &Mutex<Resourse>, cvar: &Condvar, resourse: Resourse) -> Result<(), String> {
+    fn signal_container(
+        &self,
+        lock: &Mutex<Resourse>,
+        cvar: &Condvar,
+        resourse: Resourse,
+    ) -> Result<(), String> {
         if let Ok(mut old_resourse) = lock.lock() {
             *old_resourse = resourse;
             cvar.notify_all();
@@ -68,8 +73,11 @@ impl CoffeDispenser {
         Err("[error] - coffee amount monitor failed in coffee dispenser".to_string())
     }
 
-
-    fn init_containers(&self, dispenser_semaphore: Arc<Semaphore>,coffe_amount_monitor: Arc<(Mutex<Resourse>, Condvar)>) -> Vec<JoinHandle<()>>{
+    fn init_containers(
+        &self,
+        dispenser_semaphore: Arc<Semaphore>,
+        coffe_amount_monitor: Arc<(Mutex<Resourse>, Condvar)>,
+    ) -> Vec<JoinHandle<()>> {
         let mut containers = Vec::with_capacity(CONTAINERS);
         containers.push(thread::spawn(move || {
             let mut coffee_container = CoffeContainer::new(dispenser_semaphore);
@@ -79,7 +87,7 @@ impl CoffeDispenser {
         containers
     }
 
-    fn kill_containers(&self, containers:Vec<JoinHandle<()>>) {
+    fn kill_containers(&self, containers: Vec<JoinHandle<()>>) {
         for c in containers {
             if c.join().is_ok() {
                 println!("[global]  - container killed")
@@ -99,10 +107,9 @@ impl CoffeDispenser {
         loop {
             let (lock_ticket, cvar_ticket) = &*ticket_monitor;
             if let Ok(coffe_amount) = self.new_ticket(lock_ticket, cvar_ticket) {
-                
                 let resourse = Resourse::new(coffe_amount);
                 let (lock, cvar) = &*coffe_amount_monitor;
-                if self.signal_container(lock, cvar, resourse).is_err(){
+                if self.signal_container(lock, cvar, resourse).is_err() {
                     println!("[coffee dispenser] - ERROR - KILLING THREAD ");
                     break;
                 }
@@ -139,11 +146,17 @@ impl Default for CoffeDispenser {
 
 #[cfg(test)]
 mod coffedispenser_test {
-    use std::{sync::{Arc, Condvar, Mutex}, thread, time::Duration};
+    use std::{
+        sync::{Arc, Condvar, Mutex},
+        thread,
+        time::Duration,
+    };
 
     use std_semaphore::Semaphore;
 
-    use crate::{dipensers::coffe_dispenser::CoffeDispenser, ticket::Ticket, containers::resourse::Resourse};
+    use crate::{
+        containers::resourse::Resourse, dipensers::coffe_dispenser::CoffeDispenser, ticket::Ticket,
+    };
 
     #[test]
     fn it_should_dispense_2_sec() {
@@ -186,20 +199,18 @@ mod coffedispenser_test {
         let coffe_dispenser = CoffeDispenser::new();
         let resourse: Resourse = Resourse::new(0);
 
-        
         let monitor = Arc::new((Mutex::new(resourse), Condvar::new()));
         let (lock, cvar) = &*monitor;
         let new_resourse: Resourse = Resourse::new(20);
 
-
-        match coffe_dispenser.signal_container(lock, cvar,new_resourse) {
+        match coffe_dispenser.signal_container(lock, cvar, new_resourse) {
             Ok(_) => assert!(true),
             Err(_) => assert!(false),
         }
     }
 
     #[test]
-    fn it_should_continue_when_sem_is_release(){
+    fn it_should_continue_when_sem_is_release() {
         let coffe_dispenser = CoffeDispenser::new();
         let sem = Arc::new(Semaphore::new(0));
         let sem_clone = sem.clone();
@@ -212,5 +223,4 @@ mod coffedispenser_test {
             Err(_) => assert!(false),
         }
     }
-
 }

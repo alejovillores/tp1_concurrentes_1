@@ -1,21 +1,26 @@
-use std::{thread, time::Duration, sync::{Condvar, Mutex, Arc}};
-use std_semaphore::Semaphore;
 use super::resourse::Resourse;
+use std::{
+    sync::{Arc, Condvar, Mutex},
+    thread,
+    time::Duration,
+};
+use std_semaphore::Semaphore;
 
-
-const CAPACITY:i32 = 100;
-
+const CAPACITY: i32 = 100;
 
 pub struct CoffeContainer {
     capacity: i32,
-    dispenser_semaphore: Arc<Semaphore>
+    dispenser_semaphore: Arc<Semaphore>,
 }
 
 impl CoffeContainer {
     /// Creates a new [`CoffeContainer`].
     pub fn new(dispenser_semaphore: Arc<Semaphore>) -> Self {
         let capacity = CAPACITY;
-        Self { capacity, dispenser_semaphore }
+        Self {
+            capacity,
+            dispenser_semaphore,
+        }
     }
 
     fn refill(&mut self) {
@@ -24,11 +29,10 @@ impl CoffeContainer {
         self.capacity = CAPACITY;
     }
 
-    fn consume(&mut self, mut amount:i32){
-        if self.capacity >= amount{
+    fn consume(&mut self, mut amount: i32) {
+        if self.capacity >= amount {
             self.capacity -= amount;
-        }
-        else {
+        } else {
             self.refill();
             amount -= CAPACITY;
             self.consume(amount)
@@ -47,73 +51,71 @@ impl CoffeContainer {
         Err("[error] - coffee container  monitor failed".to_string())
     }
 
-    fn signal_dispenser(&self){
+    fn signal_dispenser(&self) {
         println!("[cofee container] - releasing semaphore");
         self.dispenser_semaphore.release();
     }
 
-    pub fn start(&mut self, monitor: Arc<(Mutex<Resourse>, Condvar)>){
-
+    pub fn start(&mut self, monitor: Arc<(Mutex<Resourse>, Condvar)>) {
         loop {
             let (lock, cvar) = &*monitor;
-            if let Ok(amount) = self.has_coffee(lock, cvar){
+            if let Ok(amount) = self.has_coffee(lock, cvar) {
                 if amount < 0 {
                     println!("[coffee container] - Finishing");
                     break;
-                }
-                else {
+                } else {
                     println!("[coffee container] - consuming amount");
                     self.consume(amount);
                     self.signal_dispenser();
                 }
             }
         }
-
     }
 }
 
 #[cfg(test)]
 mod coffecontainer_test {
-    use std::sync::{Mutex, Arc, Condvar};
+    use std::sync::{Arc, Condvar, Mutex};
 
     use std_semaphore::Semaphore;
 
-    use crate::containers::{coffe_container::{CoffeContainer, CAPACITY}, resourse::Resourse};
+    use crate::containers::{
+        coffe_container::{CoffeContainer, CAPACITY},
+        resourse::Resourse,
+    };
 
     #[test]
     fn it_should_init_with_30_capacity() {
-        let sem = Arc::new(Semaphore::new(0)); 
+        let sem = Arc::new(Semaphore::new(0));
         let coffee_container = CoffeContainer::new(sem);
         assert_eq!(coffee_container.capacity, CAPACITY)
     }
 
     #[test]
-    fn it_should_refill_with_0_capacity(){
-        let sem = Arc::new(Semaphore::new(0)); 
+    fn it_should_refill_with_0_capacity() {
+        let sem = Arc::new(Semaphore::new(0));
         let mut coffee_container = CoffeContainer::new(sem);
         coffee_container.capacity = 0;
         coffee_container.refill();
         assert_eq!(coffee_container.capacity, CAPACITY)
-
     }
 
     #[test]
-    fn it_should_has_value_with_valid_amount(){
-        let sem = Arc::new(Semaphore::new(0)); 
+    fn it_should_has_value_with_valid_amount() {
+        let sem = Arc::new(Semaphore::new(0));
         let mut coffee_container = CoffeContainer::new(sem);
         let monitor = Arc::new((Mutex::new(Resourse::new(10)), Condvar::new()));
         let (lock, cvar) = &*monitor;
 
-        match coffee_container.has_coffee(lock, cvar){
+        match coffee_container.has_coffee(lock, cvar) {
             Ok(_) => assert!(true),
             Err(_) => assert!(false),
         }
-
     }
 
     #[test]
-    fn it_should_signal_semaphore(){
-        let sem = Arc::new(Semaphore::new(0)); 
+    fn it_should_signal_semaphore() {
+        let sem = Arc::new(Semaphore::new(0));
         let coffee_container = CoffeContainer::new(sem.clone());
         coffee_container.signal_dispenser();
 
@@ -122,16 +124,18 @@ mod coffecontainer_test {
     }
 
     #[test]
-    fn it_should_refill_with_bigger_amount(){
-        let sem = Arc::new(Semaphore::new(0)); 
+    fn it_should_refill_with_bigger_amount() {
+        let sem = Arc::new(Semaphore::new(0));
         let mut coffee_container = CoffeContainer::new(sem);
         let monitor = Arc::new((Mutex::new(Resourse::new(110)), Condvar::new()));
         let (lock, cvar) = &*monitor;
 
-        match coffee_container.has_coffee(lock, cvar){
-            Ok(_) => assert_eq!(coffee_container.capacity, 90),
+        match coffee_container.has_coffee(lock, cvar) {
+            Ok(c) => {
+                coffee_container.consume(c);
+                assert_eq!(coffee_container.capacity, 90)
+            }
             Err(_) => assert!(false),
         }
     }
-
 }
