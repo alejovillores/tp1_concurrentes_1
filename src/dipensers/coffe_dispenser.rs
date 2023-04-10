@@ -1,5 +1,5 @@
 use std::{
-    sync::{Condvar, Mutex},
+    sync::{Condvar, Mutex, Arc},
     thread,
     time::Duration,
 };
@@ -48,8 +48,7 @@ impl CoffeDispenser {
         Err("[error] - machine ready monitor failed".to_string())
     }
 
-    #[allow(dead_code)]
-    pub fn start(&self) {
+    pub fn start(&self,_machine_monitor: Arc<(Mutex<bool>, Condvar)>,_ticket_monitor: Arc<(Mutex<Ticket>, Condvar)>) {
 
         // wait coffe struct smaphore
         // read coffe amount
