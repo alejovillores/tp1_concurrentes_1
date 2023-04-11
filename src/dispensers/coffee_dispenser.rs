@@ -4,10 +4,8 @@ use std::{
     time::Duration,
 };
 
-use std_semaphore::Semaphore;
-
 use crate::{
-    containers::{coffe_container::CoffeContainer, container::Container, resourse::Resourse},
+    containers::{coffee_container::CoffeContainer, container::Container, resourse::Resourse},
     helpers::ticket::Ticket,
 };
 
@@ -21,6 +19,7 @@ impl CoffeDispenser {
         Self {}
     }
 
+    // Simulate dispense time
     fn dispense(&self, amount: i32) -> Result<(), std::fmt::Error> {
         println!("[coffee dispenser] - dispensing {} units of coffee", amount);
         thread::sleep(Duration::from_secs(amount as u64));
@@ -28,7 +27,8 @@ impl CoffeDispenser {
         Ok(())
     }
 
-    fn signal_finish(&self, lock: &Mutex<bool>, cvar: &Condvar) -> Result<(), String> {
+    // Signals coffee machine that coffee dispenser finished
+    fn notify_dispenser(&self, lock: &Mutex<bool>, cvar: &Condvar) -> Result<(), String> {
         if let Ok(mut dispenser) = lock.lock() {
             *dispenser = false;
             cvar.notify_all();
@@ -38,7 +38,8 @@ impl CoffeDispenser {
         Err("[error] - ticket monitor failed in coffee dispenser".to_string())
     }
 
-    fn new_ticket(&self, lock: &Mutex<Ticket>, cvar: &Condvar) -> Result<i32, String> {
+    // Waits form a new ticket from coffee machine
+    fn wait_new_ticket(&self, lock: &Mutex<Ticket>, cvar: &Condvar) -> Result<i32, String> {
         if let Ok(guard) = lock.lock() {
             if let Ok(ticket) = cvar.wait_while(guard, |status| status.is_not_ready()) {
                 let coffe_amount = ticket.get_coffe_amount();
@@ -52,7 +53,8 @@ impl CoffeDispenser {
         Err("[error] - machine ready monitor failed".to_string())
     }
 
-    fn signal_container(
+    // Signal coffee container that amount of coffee is needed
+    fn notify_container(
         &self,
         lock: &Mutex<Resourse>,
         cvar: &Condvar,
@@ -67,17 +69,34 @@ impl CoffeDispenser {
         Err("[error] - coffee amount monitor failed in coffee dispenser".to_string())
     }
 
+    // waits for coffee container to respond
+    fn wait_coffe_container(&self, lock: &Mutex<Resourse>, cvar: &Condvar) -> Result<i32, String> {
+        if let Ok(guard) = lock.lock() {
+            if let Ok(mut resourse) = cvar.wait_while(guard, |status| status.is_ready()) {
+                let coffee_amount = resourse.get_amount();
+                resourse.ready();
+
+                if coffee_amount >= END {
+                    println!("[coffee dispenser] - valid amount ");
+                }
+
+                return Ok(coffee_amount);
+            }
+        };
+        Err("[error] - machine ready monitor failed".to_string())
+    }
+
     fn init_container(
         &self,
-        dispenser_semaphore: Arc<Semaphore>,
-        coffe_amount_monitor: Arc<(Mutex<Resourse>, Condvar)>,
+        coffe_response_monitor: Arc<(Mutex<Resourse>, Condvar)>,
+        coffe_request_monitor: Arc<(Mutex<Resourse>, Condvar)>,
     ) -> JoinHandle<()> {
-        let container = thread::spawn(move || {
-            let mut coffee_container = CoffeContainer::new(dispenser_semaphore);
-            coffee_container.start(coffe_amount_monitor);
+        let coffee_container_handler = thread::spawn(move || {
+            let mut coffee_container = CoffeContainer::new();
+            coffee_container.start(coffe_request_monitor, coffe_response_monitor);
         });
 
-        container
+        coffee_container_handler
     }
 
     fn kill_container(&self, container: JoinHandle<()>) {
@@ -91,28 +110,33 @@ impl CoffeDispenser {
         machine_monitor: Arc<(Mutex<bool>, Condvar)>,
         ticket_monitor: Arc<(Mutex<Ticket>, Condvar)>,
     ) {
-        let has_coffe_sem = Arc::new(Semaphore::new(0));
         let coffe_amount_monitor = Arc::new((Mutex::new(Resourse::new(0)), Condvar::new()));
-        let container = self.init_container(has_coffe_sem.clone(), coffe_amount_monitor.clone());
+        let coffe_response_monitor = Arc::new((Mutex::new(Resourse::new(0)), Condvar::new()));
+        let coffee_container_handler =
+            self.init_container(coffe_response_monitor.clone(), coffe_amount_monitor.clone());
 
         loop {
             let (lock_ticket, cvar_ticket) = &*ticket_monitor;
-            if let Ok(coffe_amount) = self.new_ticket(lock_ticket, cvar_ticket) {
+            if let Ok(mut coffe_amount) = self.wait_new_ticket(lock_ticket, cvar_ticket) {
                 let resourse = Resourse::new(coffe_amount);
+
                 let (lock, cvar) = &*coffe_amount_monitor;
-                if self.signal_container(lock, cvar, resourse).is_err() {
+                if self.notify_container(lock, cvar, resourse).is_err() {
                     println!("[coffee dispenser] - ERROR - KILLING THREAD ");
                     break;
                 }
 
+                println!("[coffee dispenser] - waiting for coffee container");
+                let (res_lock, res_cvar) = &*coffe_response_monitor;
+                if let Ok(coffee_delivered) = self.wait_coffe_container(res_lock, res_cvar) {
+                    coffe_amount = coffee_delivered;
+                }
                 if coffe_amount < 0 {
                     println!("[coffee dispenser] - END ");
-                    self.kill_container(container);
+                    self.kill_container(coffee_container_handler);
                     break;
                 }
 
-                println!("[coffee dispenser] - waiting for coffee container");
-                has_coffe_sem.acquire();
                 println!("[coffee dispenser] - semaphore acquired");
                 if self.dispense(coffe_amount).is_err() {
                     println!("[coffee dispenser] - ERROR - KILLING THREAD ");
@@ -121,8 +145,9 @@ impl CoffeDispenser {
             }
 
             // TODO: wait until all dispensers have read amounts (barrier)
+
             let (lock, cvar) = &*machine_monitor;
-            if self.signal_finish(lock, cvar).is_err() {
+            if self.notify_dispenser(lock, cvar).is_err() {
                 println!("[coffee dispenser] - ERROR - KILLING THREAD ");
             };
         }
@@ -146,7 +171,7 @@ mod coffedispenser_test {
     use std_semaphore::Semaphore;
 
     use crate::{
-        containers::resourse::Resourse, dipensers::coffe_dispenser::CoffeDispenser,
+        containers::resourse::Resourse, dispensers::coffee_dispenser::CoffeDispenser,
         helpers::ticket::Ticket,
     };
 
@@ -165,14 +190,14 @@ mod coffedispenser_test {
         let monitor = Arc::new((Mutex::new(false), Condvar::new()));
         let (lock, cvar) = &*monitor;
 
-        match coffe_dispenser.signal_finish(lock, cvar) {
+        match coffe_dispenser.notify_dispenser(lock, cvar) {
             Ok(_) => assert!(true),
             Err(_) => assert!(false),
         }
     }
 
     #[test]
-    fn it_should_return_10_when_new_ticket_is_ready() {
+    fn it_should_return_10_when_wait_new_ticket_is_ready() {
         let coffe_dispenser = CoffeDispenser::new();
         let mut ticket = Ticket::new(10);
 
@@ -180,7 +205,7 @@ mod coffedispenser_test {
         let monitor = Arc::new((Mutex::new(ticket), Condvar::new()));
         let (lock, cvar) = &*monitor;
 
-        match coffe_dispenser.new_ticket(lock, cvar) {
+        match coffe_dispenser.wait_new_ticket(lock, cvar) {
             Ok(coffe_amount) => assert_eq!(coffe_amount, 10),
             Err(_) => assert!(false),
         }
@@ -195,7 +220,7 @@ mod coffedispenser_test {
         let (lock, cvar) = &*monitor;
         let new_resourse: Resourse = Resourse::new(20);
 
-        match coffe_dispenser.signal_container(lock, cvar, new_resourse) {
+        match coffe_dispenser.notify_container(lock, cvar, new_resourse) {
             Ok(_) => assert!(true),
             Err(_) => assert!(false),
         }

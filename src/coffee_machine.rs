@@ -3,7 +3,7 @@ use std::{
     thread::{self, JoinHandle},
 };
 
-use crate::{dipensers::coffe_dispenser::CoffeDispenser, helpers::ticket::Ticket};
+use crate::{dispensers::coffee_dispenser::CoffeDispenser, helpers::ticket::Ticket};
 
 const DISPENSERS: usize = 1;
 
@@ -126,7 +126,7 @@ impl Default for CoffeMachine {
 mod coffemachine_test {
     use std::sync::{Arc, Condvar, Mutex};
 
-    use crate::{coffemachine::CoffeMachine, helpers::ticket::Ticket};
+    use crate::{coffee_machine::CoffeMachine, helpers::ticket::Ticket};
 
     #[test]
     fn it_should_initialize_with_0_coffe_made() {

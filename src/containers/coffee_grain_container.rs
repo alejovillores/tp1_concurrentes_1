@@ -1,6 +1,9 @@
 use std::sync::{Arc, Condvar, Mutex};
 
-use super::{container::Container, resourse::Resourse};
+use super::{
+    container::Container,
+    resourse::{self, Resourse},
+};
 
 const EMPTY: i32 = -1;
 const CAPACITY: i32 = 2500;
@@ -40,20 +43,55 @@ impl CoffeeGrainContainer {
         if let Ok(guard) = lock.lock() {
             if let Ok(mut resourse) = cvar.wait_while(guard, |status| status.is_ready()) {
                 let coffee_amount = resourse.get_amount();
-                let result = self.refill(coffee_amount);
-                *resourse = Resourse::new(result);
                 resourse.ready();
-                return Ok(result);
+                return Ok(coffee_amount);
             };
         };
 
         Err("[error] - coffee container  monitor failed".to_string())
     }
+
+    fn signal_refill(
+        &self,
+        lock: &Mutex<Resourse>,
+        cvar: &Condvar,
+        resourse: Resourse,
+    ) -> Result<(), String> {
+        if let Ok(mut old_resourse) = lock.lock() {
+            *old_resourse = resourse;
+            cvar.notify_all();
+            println!("[coffee greain container] - send new coffee grain amount request");
+            return Ok(());
+        };
+        Err("[error] - coffee amount monitor failed in coffee dispenser".to_string())
+    }
 }
 
 impl Container for CoffeeGrainContainer {
-    fn start(&mut self, _monitor: Arc<(Mutex<Resourse>, Condvar)>) {
-        todo!()
+    fn start(
+        &mut self,
+        request_monitor: Arc<(Mutex<Resourse>, Condvar)>,
+        response_monitor: Arc<(Mutex<Resourse>, Condvar)>,
+    ) {
+        loop {
+            let (lock, cvar) = &*request_monitor;
+            if let Ok(amount) = self.wait_refill(lock, cvar) {
+                let refill_amount = self.refill(amount);
+                let resourse = Resourse::new(refill_amount);
+
+                let (res_lock, res_cvar) = &*response_monitor;
+
+                if self.signal_refill(res_lock, res_cvar, resourse).is_err() {
+                    println!("[error] - error in coffee grain container")
+                }
+
+                if refill_amount == EMPTY {
+                    break;
+                } else {
+                    println!("[coffee grain container] - send new grain amount")
+                }
+            }
+        }
     }
 }
 

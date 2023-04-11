@@ -25,7 +25,7 @@ Luego se cosntruira el dispenser de leche y espuma. Por ultimo el de cacao y agu
 
 Se utilizan diferentes estructuras de sincronizacion, tales como:
  - Monitores para comunicar la cafetera con los dispensers y viceversa
- - Semaforos para dar paso al dispenser cuando hay recurso disponible
+ - Monitores para comunicar los diferentes contenedores
  - Barreras para que todos los dispensers antes de comenzar lean el valor que les corresponde
 
 Hay contenedores que necesitan a su vez comunicarse con otros a la hora de rellenar sus unidades. Tambien deben saber si ese contenedor en particular quedó vacio.
@@ -33,6 +33,11 @@ Hay contenedores que necesitan a su vez comunicarse con otros a la hora de relle
 Como estos contenedores que solo son se sincronizan con otro contenedor que depende de ellos, veo necesario que este contenedor sea creado por el contenedor hijo.
 
 Por ultimo, se tiene a su vez un hilo por fuera de los dispensers que corresponde a un generador de datos estadisticos. Cada N seg imprime por stdout ciertos datos de la maquina. 
+
+
+### _Dificultades al modelar_
+
+Se noto, que dado que los contenedores deben comunicarse entre si por falta de suministro que no se recargue, se deben hacer un especie de request y response entre ellos. Por ejemplo, el contenedor de cafe molido, en caso de no tener cafe, debe enviarle una señal al contenedor de gramos de cafe para que este le proveea los gramos necesarios. Si este contenedor no tiene mas gramos para proveer, debe avisar al contedor de cafe molido, y este avisar al dispenser ya que no se podrá realizar mas cafe.
 
 
 ### _Test de Aceptacion_

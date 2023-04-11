@@ -1,4 +1,4 @@
-use tp1_alejovillores::coffemachine::CoffeMachine;
+use tp1_alejovillores::coffee_machine::CoffeMachine;
 
 fn main() {
     let mut coffe_machine = CoffeMachine::new();

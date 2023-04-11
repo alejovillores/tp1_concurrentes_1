@@ -1,5 +1,5 @@
-pub mod coffemachine;
+pub mod coffee_machine;
 pub mod containers;
-pub mod dipensers;
+pub mod dispensers;
 pub mod factories;
 pub mod helpers;
