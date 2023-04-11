@@ -89,12 +89,10 @@ impl CoffeDispenser {
         coffe_response_monitor: Arc<(Mutex<Resourse>, Condvar)>,
         coffe_request_monitor: Arc<(Mutex<Resourse>, Condvar)>,
     ) -> JoinHandle<()> {
-        let coffee_container_handler = thread::spawn(move || {
+        thread::spawn(move || {
             let mut coffee_container = CoffeContainer::new();
             coffee_container.start(coffe_request_monitor, coffe_response_monitor);
-        });
-
-        coffee_container_handler
+        })
     }
 
     fn kill_container(&self, container: JoinHandle<()>) {
@@ -133,7 +131,6 @@ impl CoffeDispenser {
                     println!("[coffee dispenser] - END ");
                     self.kill_container(coffee_container_handler);
                     break;
-
                 }
                 if self.dispense(coffe_amount).is_err() {
                     println!("[coffee dispenser] - ERROR - KILLING THREAD ");
@@ -159,9 +156,7 @@ impl Default for CoffeDispenser {
 
 #[cfg(test)]
 mod coffedispenser_test {
-    use std::{
-        sync::{Arc, Condvar, Mutex},};
-
+    use std::sync::{Arc, Condvar, Mutex};
 
     use crate::{
         containers::resourse::Resourse, dispensers::coffee_dispenser::CoffeDispenser,
@@ -212,12 +207,10 @@ mod coffedispenser_test {
         let monitor = Arc::new((Mutex::new(resourse), Condvar::new()));
         let (lock, cvar) = &*monitor;
         let new_resourse: Resourse = Resourse::new(20);
-        
 
         match coffe_dispenser.notify_container(lock, cvar, new_resourse) {
             Ok(_) => assert!(true),
             Err(_) => assert!(false),
         }
     }
-
 }

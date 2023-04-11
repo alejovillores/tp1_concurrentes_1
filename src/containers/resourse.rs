@@ -21,7 +21,7 @@ impl Resourse {
         self.not_ready
     }
 
-    pub fn read(&mut self){
+    pub fn read(&mut self) {
         self.not_ready = true;
     }
 }
@@ -45,7 +45,6 @@ mod resourse_test {
         assert!(!resourse.not_ready)
     }
 
-    
     #[test]
     fn it_should_be_not_ready_after_read() {
         let amount = 10;
@@ -54,12 +53,10 @@ mod resourse_test {
         assert!(resourse.not_ready)
     }
 
-
     #[test]
     fn it_should_have_amount_10() {
         let amount = 10;
-        let mut resourse = Resourse::new(amount);
-        assert_eq!(resourse.get_amount(),10)
+        let resourse = Resourse::new(amount);
+        assert_eq!(resourse.get_amount(), 10)
     }
-
 }

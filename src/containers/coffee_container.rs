@@ -4,7 +4,6 @@ use super::{
 use std::{
     sync::{Arc, Condvar, Mutex},
     thread::{self, JoinHandle},
-    time::Duration,
 };
 
 const CAPACITY: i32 = 100;
@@ -52,23 +51,22 @@ impl CoffeContainer {
         refill_res_monitor: Arc<(Mutex<Resourse>, Condvar)>,
         mut amount: i32,
     ) -> Result<i32, String> {
-        
-        if self.capacity >= amount && amount.is_positive(){
+        if self.capacity >= amount && amount.is_positive() {
             self.capacity -= amount;
             return Ok(amount);
         }
         if self.capacity == FINISH_FLAG {
             return Ok(FINISH_FLAG);
-        } 
-        
+        }
+
         if amount.is_negative() {
             self.refill(
                 refill_req_monitor.clone(),
                 refill_res_monitor.clone(),
                 FINISH_FLAG,
             );
-            return Ok(FINISH_FLAG)            
-        }else {
+            return Ok(FINISH_FLAG);
+        } else {
             let refill_amount = CAPACITY - self.capacity;
             self.refill(
                 refill_req_monitor.clone(),
@@ -89,7 +87,10 @@ impl CoffeContainer {
         if let Ok(guard) = lock.lock() {
             if let Ok(mut resourse) = cvar.wait_while(guard, |status| status.is_not_ready()) {
                 let coffe_amount = resourse.get_amount();
-                println!("[coffee container] - dispenser asking for {} units of coffe", coffe_amount);
+                println!(
+                    "[coffee container] - dispenser asking for {} units of coffe",
+                    coffe_amount
+                );
                 resourse.read();
                 return Ok(coffe_amount);
             }
@@ -142,12 +143,10 @@ impl CoffeContainer {
         refill_req_monitor: Arc<(Mutex<Resourse>, Condvar)>,
         refill_res_monitor: Arc<(Mutex<Resourse>, Condvar)>,
     ) -> JoinHandle<()> {
-        let coffee_grain_handler = thread::spawn(move || {
+        thread::spawn(move || {
             let mut coffee_grain_container = CoffeeGrainContainer::new();
             coffee_grain_container.start(refill_req_monitor, refill_res_monitor);
-        });
-
-        coffee_grain_handler
+        })
     }
 
     // Kill child thread container
@@ -172,7 +171,10 @@ impl Container for CoffeContainer {
         loop {
             let (lock, cvar) = &*dispenser_req_monitor;
             if let Ok(amount) = self.wait_dispenser_coffee(lock, cvar) {
-                println!("[coffee container] - attempting to consume amount {}", amount);
+                println!(
+                    "[coffee container] - attempting to consume amount {}",
+                    amount
+                );
                 if let Ok(amounte_consumed) = self.consume(
                     refill_req_monitor.clone(),
                     refill_res_monitor.clone(),
@@ -197,7 +199,7 @@ mod coffecontainer_test {
 
     use crate::containers::{
         coffee_container::{CoffeContainer, CAPACITY},
-        resourse::{Resourse},
+        resourse::Resourse,
     };
 
     #[test]
@@ -213,9 +215,8 @@ mod coffecontainer_test {
         let mut coffee_container = CoffeContainer::new();
         coffee_container.capacity = 0;
 
-        
         let (res_lock, res_cvar) = &*refill_res_monitor;
-        if let Ok( mut resourse) = res_lock.lock() {
+        if let Ok(mut resourse) = res_lock.lock() {
             resourse.ready_to_read();
             res_cvar.notify_all();
         }

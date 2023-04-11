@@ -1,9 +1,6 @@
 use std::sync::{Arc, Condvar, Mutex};
 
-use super::{
-    container::Container,
-    resourse::{self, Resourse},
-};
+use super::{container::Container, resourse::Resourse};
 
 const EMPTY: i32 = -1;
 const CAPACITY: i32 = 2500;
@@ -31,7 +28,7 @@ impl CoffeeGrainContainer {
             return EMPTY;
         };
 
-        if amount.is_negative(){
+        if amount.is_negative() {
             return EMPTY;
         }
 
@@ -49,7 +46,10 @@ impl CoffeeGrainContainer {
         if let Ok(guard) = lock.lock() {
             if let Ok(mut resourse) = cvar.wait_while(guard, |status| status.is_not_ready()) {
                 let coffee_amount = resourse.get_amount();
-                println!("[coffee grain container] - coffe container asking for amount {}",coffee_amount);
+                println!(
+                    "[coffee grain container] - coffe container asking for amount {}",
+                    coffee_amount
+                );
                 resourse.read();
                 return Ok(coffee_amount);
             };
@@ -66,7 +66,10 @@ impl CoffeeGrainContainer {
     ) -> Result<(), String> {
         if let Ok(mut old_resourse) = lock.lock() {
             *old_resourse = resourse;
-            println!("[coffee grain container] - send new coffee grain amount: {} request", old_resourse.get_amount());
+            println!(
+                "[coffee grain container] - send new coffee grain amount: {} request",
+                old_resourse.get_amount()
+            );
             old_resourse.ready_to_read();
             cvar.notify_all();
             return Ok(());

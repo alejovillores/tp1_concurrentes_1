@@ -59,10 +59,10 @@ impl CoffeMachine {
     }
 
     fn read_ticket(&self, i: i32) -> Option<Ticket> {
-        if i == 3{
+        if i == 3 {
             return Some(Ticket::new(-1));
         }
-        Some(Ticket::new(i*10))
+        Some(Ticket::new(i * 10))
     }
 
     fn kill_dispensers(&self, dispensers: Vec<JoinHandle<()>>) {
