@@ -4,7 +4,7 @@ set -e
 
 echo "Running test "
 echo
-cargo test -- --nocapture
+cargo test 
 
 echo "Running format "
 echo

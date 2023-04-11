@@ -1,7 +1,7 @@
-use super::resourse::Resourse;
+use super::{container::Container, resourse::Resourse};
 use std::{
     sync::{Arc, Condvar, Mutex},
-    thread,
+    thread::{self, JoinHandle},
     time::Duration,
 };
 use std_semaphore::Semaphore;
@@ -14,7 +14,6 @@ pub struct CoffeContainer {
 }
 
 impl CoffeContainer {
-    /// Creates a new [`CoffeContainer`].
     pub fn new(dispenser_semaphore: Arc<Semaphore>) -> Self {
         let capacity = CAPACITY;
         Self {
@@ -39,9 +38,8 @@ impl CoffeContainer {
         }
     }
 
-    fn has_coffee(&mut self, lock: &Mutex<Resourse>, cvar: &Condvar) -> Result<i32, String> {
+    fn get_coffe(&mut self, lock: &Mutex<Resourse>, cvar: &Condvar) -> Result<i32, String> {
         if let Ok(guard) = lock.lock() {
-            // As long as the value inside the `Mutex<bool>` is `true`, we wait
             if let Ok(mut resourse) = cvar.wait_while(guard, |status| status.is_ready()) {
                 let coffe_amount = resourse.get_amount();
                 resourse.ready();
@@ -56,10 +54,27 @@ impl CoffeContainer {
         self.dispenser_semaphore.release();
     }
 
-    pub fn start(&mut self, monitor: Arc<(Mutex<Resourse>, Condvar)>) {
+    fn init_container(&self, _refill_monitor: Arc<(Mutex<Resourse>, Condvar)>) -> JoinHandle<()> {
+        let container = thread::spawn(move || {});
+
+        container
+    }
+
+    fn _kill_container(&self, container: JoinHandle<()>) {
+        if container.join().is_ok() {
+            println!("[global]  - container killed")
+        };
+    }
+}
+
+impl Container for CoffeContainer {
+    fn start(&mut self, monitor: Arc<(Mutex<Resourse>, Condvar)>) {
+        let refill_monitor = Arc::new((Mutex::new(Resourse::new(0)), Condvar::new()));
+        let _grain_container = self.init_container(refill_monitor);
+
         loop {
             let (lock, cvar) = &*monitor;
-            if let Ok(amount) = self.has_coffee(lock, cvar) {
+            if let Ok(amount) = self.get_coffe(lock, cvar) {
                 if amount < 0 {
                     println!("[coffee container] - Finishing");
                     break;
@@ -107,7 +122,7 @@ mod coffecontainer_test {
         let monitor = Arc::new((Mutex::new(Resourse::new(10)), Condvar::new()));
         let (lock, cvar) = &*monitor;
 
-        match coffee_container.has_coffee(lock, cvar) {
+        match coffee_container.get_coffe(lock, cvar) {
             Ok(_) => assert!(true),
             Err(_) => assert!(false),
         }
@@ -130,7 +145,7 @@ mod coffecontainer_test {
         let monitor = Arc::new((Mutex::new(Resourse::new(110)), Condvar::new()));
         let (lock, cvar) = &*monitor;
 
-        match coffee_container.has_coffee(lock, cvar) {
+        match coffee_container.get_coffe(lock, cvar) {
             Ok(c) => {
                 coffee_container.consume(c);
                 assert_eq!(coffee_container.capacity, 90)

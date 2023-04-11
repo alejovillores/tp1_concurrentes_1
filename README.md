@@ -20,6 +20,20 @@ El diagrama pensado fue el siguiente:
 
 Donde habrá un Thread por Dispenser y un thread por Container.
 
+El primer dispenser en desarrollarse es el de Cafe molido, con sus contenedores de cafe molido y granos de cafe.
+Luego se cosntruira el dispenser de leche y espuma. Por ultimo el de cacao y agua.
+
+Se utilizan diferentes estructuras de sincronizacion, tales como:
+ - Monitores para comunicar la cafetera con los dispensers y viceversa
+ - Semaforos para dar paso al dispenser cuando hay recurso disponible
+ - Barreras para que todos los dispensers antes de comenzar lean el valor que les corresponde
+
+Hay contenedores que necesitan a su vez comunicarse con otros a la hora de rellenar sus unidades. Tambien deben saber si ese contenedor en particular quedó vacio.
+
+Como estos contenedores que solo son se sincronizan con otro contenedor que depende de ellos, veo necesario que este contenedor sea creado por el contenedor hijo.
+
+Por ultimo, se tiene a su vez un hilo por fuera de los dispensers que corresponde a un generador de datos estadisticos. Cada N seg imprime por stdout ciertos datos de la maquina. 
+
 
 ### _Test de Aceptacion_
 

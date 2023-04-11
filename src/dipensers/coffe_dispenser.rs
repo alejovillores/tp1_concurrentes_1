@@ -7,8 +7,8 @@ use std::{
 use std_semaphore::Semaphore;
 
 use crate::{
-    containers::{coffe_container::CoffeContainer, resourse::Resourse},
-    ticket::Ticket,
+    containers::{coffe_container::CoffeContainer, container::Container, resourse::Resourse},
+    helpers::ticket::Ticket,
 };
 
 const END: i32 = 0;
@@ -23,10 +23,6 @@ impl CoffeDispenser {
     }
 
     fn dispense(&self, amount: i32) -> Result<(), std::fmt::Error> {
-        // TODO: should signal coffe container that amount of coffe is needed
-        // TODO: should wait for coffe container to allow me.
-
-        // imitate dispense
         println!("[coffee dispenser] - dispensing {} units of coffee", amount);
         thread::sleep(Duration::from_secs(amount as u64));
         println!("[coffee dispenser] - coffee amount dispensed");
@@ -45,7 +41,6 @@ impl CoffeDispenser {
 
     fn new_ticket(&self, lock: &Mutex<Ticket>, cvar: &Condvar) -> Result<i32, String> {
         if let Ok(guard) = lock.lock() {
-            // As long as the value inside the `Mutex<bool>` is `true`, we wait
             if let Ok(ticket) = cvar.wait_while(guard, |status| status.is_not_ready()) {
                 let coffe_amount = ticket.get_coffe_amount();
                 if coffe_amount >= END {
@@ -73,26 +68,23 @@ impl CoffeDispenser {
         Err("[error] - coffee amount monitor failed in coffee dispenser".to_string())
     }
 
-    fn init_containers(
+    fn init_container(
         &self,
         dispenser_semaphore: Arc<Semaphore>,
         coffe_amount_monitor: Arc<(Mutex<Resourse>, Condvar)>,
-    ) -> Vec<JoinHandle<()>> {
-        let mut containers = Vec::with_capacity(CONTAINERS);
-        containers.push(thread::spawn(move || {
+    ) -> JoinHandle<()> {
+        let container = thread::spawn(move || {
             let mut coffee_container = CoffeContainer::new(dispenser_semaphore);
             coffee_container.start(coffe_amount_monitor);
-        }));
+        });
 
-        containers
+        container
     }
 
-    fn kill_containers(&self, containers: Vec<JoinHandle<()>>) {
-        for c in containers {
-            if c.join().is_ok() {
-                println!("[global]  - container killed")
-            };
-        }
+    fn kill_container(&self, container: JoinHandle<()>) {
+        if container.join().is_ok() {
+            println!("[global]  - container killed")
+        };
     }
 
     pub fn start(
@@ -102,7 +94,7 @@ impl CoffeDispenser {
     ) {
         let has_coffe_sem = Arc::new(Semaphore::new(0));
         let coffe_amount_monitor = Arc::new((Mutex::new(Resourse::new(0)), Condvar::new()));
-        let containers = self.init_containers(has_coffe_sem.clone(), coffe_amount_monitor.clone());
+        let container = self.init_container(has_coffe_sem.clone(), coffe_amount_monitor.clone());
 
         loop {
             let (lock_ticket, cvar_ticket) = &*ticket_monitor;
@@ -116,7 +108,7 @@ impl CoffeDispenser {
 
                 if coffe_amount < 0 {
                     println!("[coffee dispenser] - END ");
-                    self.kill_containers(containers);
+                    self.kill_container(container);
                     break;
                 }
 
@@ -155,7 +147,8 @@ mod coffedispenser_test {
     use std_semaphore::Semaphore;
 
     use crate::{
-        containers::resourse::Resourse, dipensers::coffe_dispenser::CoffeDispenser, ticket::Ticket,
+        containers::resourse::Resourse, dipensers::coffe_dispenser::CoffeDispenser,
+        helpers::ticket::Ticket,
     };
 
     #[test]
