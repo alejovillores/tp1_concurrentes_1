@@ -2,8 +2,6 @@ use std::sync::Arc;
 
 use std_semaphore::Semaphore;
 
-use crate::containers::{coffe_container::CoffeContainer, container::Container};
-
 pub struct ContainerFactory {}
 
 pub enum Containers {
@@ -16,7 +14,7 @@ impl ContainerFactory {
         Self {}
     }
 
-    pub fn create(container_type: Containers, sem: Arc<Semaphore>) {
+    pub fn create(container_type: Containers, _sem: Arc<Semaphore>) {
         match container_type {
             Containers::Coffe => todo!(),
             Containers::CoffeGrain => todo!(),

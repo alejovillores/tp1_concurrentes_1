@@ -12,7 +12,6 @@ use crate::{
 };
 
 const END: i32 = 0;
-const CONTAINERS: usize = 1;
 
 #[derive(Debug)]
 pub struct CoffeDispenser {}

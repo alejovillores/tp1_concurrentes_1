@@ -1,4 +1,6 @@
-use super::{container::Container, resourse::Resourse};
+use super::{
+    coffee_grain_container::CoffeeGrainContainer, container::Container, resourse::Resourse,
+};
 use std::{
     sync::{Arc, Condvar, Mutex},
     thread::{self, JoinHandle},
@@ -55,7 +57,10 @@ impl CoffeContainer {
     }
 
     fn init_container(&self, _refill_monitor: Arc<(Mutex<Resourse>, Condvar)>) -> JoinHandle<()> {
-        let container = thread::spawn(move || {});
+        let container = thread::spawn(move || {
+            let _coffee_grain_container = CoffeeGrainContainer::new();
+            //let coffee_grain_container.start(refill_monitor);
+        });
 
         container
     }
