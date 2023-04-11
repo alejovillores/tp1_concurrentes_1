@@ -51,7 +51,7 @@ impl CoffeMachine {
     ) -> Result<(), String> {
         if let Ok(mut ticket) = lock.lock() {
             *ticket = new_ticket;
-            ticket.ready();
+            ticket.ready_to_read();
             cvar.notify_all();
             return Ok(());
         };
@@ -59,7 +59,7 @@ impl CoffeMachine {
     }
 
     fn read_ticket(&self, i: i32) -> Option<Ticket> {
-        if i == 2 {
+        if i == 3{
             return Some(Ticket::new(-1));
         }
         Some(Ticket::new(i*10))
@@ -78,7 +78,7 @@ impl CoffeMachine {
         let ticket_monitor = Arc::new((Mutex::new(Ticket::new(0)), Condvar::new()));
         let dispensers = self.init_dispensers(machine_monitor.clone(), ticket_monitor.clone());
 
-        for i in 0..3 {
+        for i in 1..4 {
             let (lock, cvar) = &*machine_monitor;
             match self.finished(lock, cvar) {
                 Ok(_) => {

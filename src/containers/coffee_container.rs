@@ -52,13 +52,23 @@ impl CoffeContainer {
         refill_res_monitor: Arc<(Mutex<Resourse>, Condvar)>,
         mut amount: i32,
     ) -> Result<i32, String> {
-        if self.capacity >= amount {
+        
+        if self.capacity >= amount && amount.is_positive(){
             self.capacity -= amount;
             return Ok(amount);
         }
         if self.capacity == FINISH_FLAG {
             return Ok(FINISH_FLAG);
-        } else {
+        } 
+        
+        if amount.is_negative() {
+            self.refill(
+                refill_req_monitor.clone(),
+                refill_res_monitor.clone(),
+                FINISH_FLAG,
+            );
+            return Ok(FINISH_FLAG)            
+        }else {
             let refill_amount = CAPACITY - self.capacity;
             self.refill(
                 refill_req_monitor.clone(),
@@ -171,8 +181,8 @@ impl Container for CoffeContainer {
                     let (res_lock, res_cvar) = &*dispenser_res_monitor;
                     self.notify_dispenser(res_lock, res_cvar, Resourse::new(amounte_consumed));
                     if amount == FINISH_FLAG {
-                        println!("[coffee container] - Finishing");
                         self.kill_container(grain_container);
+                        println!("[coffee container] - finishing ");
                         break;
                     }
                 }

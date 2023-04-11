@@ -41,11 +41,12 @@ impl CoffeDispenser {
     // Waits form a new ticket from coffee machine
     fn wait_new_ticket(&self, lock: &Mutex<Ticket>, cvar: &Condvar) -> Result<i32, String> {
         if let Ok(guard) = lock.lock() {
-            if let Ok(ticket) = cvar.wait_while(guard, |status| status.is_not_ready()) {
+            if let Ok(mut ticket) = cvar.wait_while(guard, |status| status.is_not_ready()) {
                 let coffe_amount = ticket.get_coffe_amount();
                 if coffe_amount >= END {
                     println!("[coffee dispenser] - NEW TICKET ");
                 }
+                ticket.read();
 
                 return Ok(coffe_amount);
             }
@@ -76,6 +77,7 @@ impl CoffeDispenser {
             if let Ok(mut resourse) = cvar.wait_while(guard, |status| status.is_not_ready()) {
                 let coffee_amount = resourse.get_amount();
                 resourse.read();
+                println!("[coffee dispenser] - response from container");
                 return Ok(coffee_amount);
             }
         };
@@ -131,9 +133,8 @@ impl CoffeDispenser {
                     println!("[coffee dispenser] - END ");
                     self.kill_container(coffee_container_handler);
                     break;
-                }
 
-                println!("[coffee dispenser] - semaphore acquired");
+                }
                 if self.dispense(coffe_amount).is_err() {
                     println!("[coffee dispenser] - ERROR - KILLING THREAD ");
                     break;
@@ -193,7 +194,7 @@ mod coffedispenser_test {
         let coffe_dispenser = CoffeDispenser::new();
         let mut ticket = Ticket::new(10);
 
-        ticket.ready();
+        ticket.ready_to_read();
         let monitor = Arc::new((Mutex::new(ticket), Condvar::new()));
         let (lock, cvar) = &*monitor;
 

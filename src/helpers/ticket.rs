@@ -13,8 +13,12 @@ impl Ticket {
         }
     }
 
-    pub fn ready(&mut self) {
+    pub fn ready_to_read(&mut self) {
         self.not_ready = false
+    }
+
+    pub fn read(&mut self) {
+        self.not_ready = true
     }
 
     pub fn is_not_ready(&self) -> bool {

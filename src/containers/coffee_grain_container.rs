@@ -31,6 +31,10 @@ impl CoffeeGrainContainer {
             return EMPTY;
         };
 
+        if amount.is_negative(){
+            return EMPTY;
+        }
+
         if self.capacity <= amount {
             let result = self.capacity;
             self.capacity = 0;
