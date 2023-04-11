@@ -59,10 +59,10 @@ impl CoffeMachine {
     }
 
     fn read_ticket(&self, i: i32) -> Option<Ticket> {
-        if i == 4 {
+        if i == 2 {
             return Some(Ticket::new(-1));
         }
-        Some(Ticket::new(3))
+        Some(Ticket::new(i*10))
     }
 
     fn kill_dispensers(&self, dispensers: Vec<JoinHandle<()>>) {
@@ -78,7 +78,7 @@ impl CoffeMachine {
         let ticket_monitor = Arc::new((Mutex::new(Ticket::new(0)), Condvar::new()));
         let dispensers = self.init_dispensers(machine_monitor.clone(), ticket_monitor.clone());
 
-        for i in 0..5 {
+        for i in 0..3 {
             let (lock, cvar) = &*machine_monitor;
             match self.finished(lock, cvar) {
                 Ok(_) => {

@@ -77,9 +77,10 @@ impl CoffeContainer {
         cvar: &Condvar,
     ) -> Result<i32, String> {
         if let Ok(guard) = lock.lock() {
-            if let Ok(mut resourse) = cvar.wait_while(guard, |status| status.is_ready()) {
+            if let Ok(mut resourse) = cvar.wait_while(guard, |status| status.is_not_ready()) {
                 let coffe_amount = resourse.get_amount();
-                resourse.ready();
+                println!("[coffee container] - dispenser asking for {} units of coffe", coffe_amount);
+                resourse.read();
                 return Ok(coffe_amount);
             }
         };
@@ -88,9 +89,10 @@ impl CoffeContainer {
 
     // Notify dispenser about new resourse avaliable
     fn notify_dispenser(&mut self, lock: &Mutex<Resourse>, cvar: &Condvar, res: Resourse) {
-        println!("[coffee container] - releasing monitor");
         if let Ok(mut resourse) = lock.lock() {
             *resourse = res;
+            resourse.ready_to_read();
+            println!("[coffee container] - notifying dispenser");
             cvar.notify_all();
         }
     }
@@ -102,9 +104,9 @@ impl CoffeContainer {
         cvar: &Condvar,
     ) -> Result<i32, String> {
         if let Ok(guard) = lock.lock() {
-            if let Ok(mut resourse) = cvar.wait_while(guard, |status| status.is_ready()) {
+            if let Ok(mut resourse) = cvar.wait_while(guard, |status| status.is_not_ready()) {
                 let coffe_amount = resourse.get_amount();
-                resourse.ready();
+                resourse.read();
                 return Ok(coffe_amount);
             }
         };
@@ -119,6 +121,7 @@ impl CoffeContainer {
         println!("[coffee container] - sending request to container");
         if let Ok(mut resourse) = lock.lock() {
             *resourse = res;
+            resourse.ready_to_read();
             cvar.notify_all();
         }
     }
@@ -138,9 +141,9 @@ impl CoffeContainer {
     }
 
     // Kill child thread container
-    fn _kill_container(&self, coffee_grain_handler: JoinHandle<()>) {
+    fn kill_container(&self, coffee_grain_handler: JoinHandle<()>) {
         if coffee_grain_handler.join().is_ok() {
-            println!("[global]  - coffee container killed")
+            println!("[global]  - coffee container grained killed")
         };
     }
 }
@@ -153,13 +156,13 @@ impl Container for CoffeContainer {
     ) {
         let refill_req_monitor = Arc::new((Mutex::new(Resourse::new(0)), Condvar::new()));
         let refill_res_monitor = Arc::new((Mutex::new(Resourse::new(0)), Condvar::new()));
-        let _grain_container =
+        let grain_container =
             self.init_container(refill_req_monitor.clone(), refill_res_monitor.clone());
 
         loop {
             let (lock, cvar) = &*dispenser_req_monitor;
             if let Ok(amount) = self.wait_dispenser_coffee(lock, cvar) {
-                println!("[coffee container] - attempting to consume");
+                println!("[coffee container] - attempting to consume amount {}", amount);
                 if let Ok(amounte_consumed) = self.consume(
                     refill_req_monitor.clone(),
                     refill_res_monitor.clone(),
@@ -169,6 +172,7 @@ impl Container for CoffeContainer {
                     self.notify_dispenser(res_lock, res_cvar, Resourse::new(amounte_consumed));
                     if amount == FINISH_FLAG {
                         println!("[coffee container] - Finishing");
+                        self.kill_container(grain_container);
                         break;
                     }
                 }
@@ -183,7 +187,7 @@ mod coffecontainer_test {
 
     use crate::containers::{
         coffee_container::{CoffeContainer, CAPACITY},
-        resourse::Resourse,
+        resourse::{Resourse},
     };
 
     #[test]
@@ -194,17 +198,18 @@ mod coffecontainer_test {
 
     #[test]
     fn it_should_refill_with_0_capacity() {
-        let refill_req_monitor = Arc::new((Mutex::new(Resourse::new(0)), Condvar::new()));
+        let refill_req_monitor = Arc::new((Mutex::new(Resourse::new(100)), Condvar::new()));
         let refill_res_monitor = Arc::new((Mutex::new(Resourse::new(100)), Condvar::new()));
         let mut coffee_container = CoffeContainer::new();
         coffee_container.capacity = 0;
 
-        coffee_container.refill(refill_req_monitor, refill_res_monitor.clone(), 100);
-
+        
         let (res_lock, res_cvar) = &*refill_res_monitor;
-        if let Ok(resourse) = res_lock.lock() {
+        if let Ok( mut resourse) = res_lock.lock() {
+            resourse.ready_to_read();
             res_cvar.notify_all();
         }
+        coffee_container.refill(refill_req_monitor, refill_res_monitor.clone(), 100);
 
         assert_eq!(coffee_container.capacity, CAPACITY)
     }
@@ -212,7 +217,9 @@ mod coffecontainer_test {
     #[test]
     fn it_should_has_value_with_valid_amount() {
         let mut coffee_container = CoffeContainer::new();
-        let monitor = Arc::new((Mutex::new(Resourse::new(10)), Condvar::new()));
+        let mut res = Resourse::new(10);
+        res.ready_to_read();
+        let monitor = Arc::new((Mutex::new(res), Condvar::new()));
         let (lock, cvar) = &*monitor;
 
         match coffee_container.wait_dispenser_coffee(lock, cvar) {

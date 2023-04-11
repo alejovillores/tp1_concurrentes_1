@@ -21,11 +21,13 @@ impl CoffeeGrainContainer {
     #[allow(dead_code)]
     fn refill(&mut self, amount: i32) -> i32 {
         if self.capacity >= amount {
+            println!("[coffe grain container] - amount valid");
             self.capacity -= amount;
             return amount;
         };
 
         if self.capacity == 0 {
+            println!("[coffee grain container] - no more coffee grain");
             return EMPTY;
         };
 
@@ -41,9 +43,10 @@ impl CoffeeGrainContainer {
     #[allow(dead_code)]
     fn wait_refill(&mut self, lock: &Mutex<Resourse>, cvar: &Condvar) -> Result<i32, String> {
         if let Ok(guard) = lock.lock() {
-            if let Ok(mut resourse) = cvar.wait_while(guard, |status| status.is_ready()) {
+            if let Ok(mut resourse) = cvar.wait_while(guard, |status| status.is_not_ready()) {
                 let coffee_amount = resourse.get_amount();
-                resourse.ready();
+                println!("[coffee grain container] - coffe container asking for amount {}",coffee_amount);
+                resourse.read();
                 return Ok(coffee_amount);
             };
         };
@@ -59,8 +62,9 @@ impl CoffeeGrainContainer {
     ) -> Result<(), String> {
         if let Ok(mut old_resourse) = lock.lock() {
             *old_resourse = resourse;
+            println!("[coffee grain container] - send new coffee grain amount: {} request", old_resourse.get_amount());
+            old_resourse.ready_to_read();
             cvar.notify_all();
-            println!("[coffee greain container] - send new coffee grain amount request");
             return Ok(());
         };
         Err("[error] - coffee amount monitor failed in coffee dispenser".to_string())
@@ -80,7 +84,6 @@ impl Container for CoffeeGrainContainer {
                 let resourse = Resourse::new(refill_amount);
 
                 let (res_lock, res_cvar) = &*response_monitor;
-
                 if self.signal_refill(res_lock, res_cvar, resourse).is_err() {
                     println!("[error] - error in coffee grain container")
                 }

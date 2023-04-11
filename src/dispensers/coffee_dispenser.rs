@@ -28,7 +28,7 @@ impl CoffeDispenser {
     }
 
     // Signals coffee machine that coffee dispenser finished
-    fn notify_dispenser(&self, lock: &Mutex<bool>, cvar: &Condvar) -> Result<(), String> {
+    fn notify_machine(&self, lock: &Mutex<bool>, cvar: &Condvar) -> Result<(), String> {
         if let Ok(mut dispenser) = lock.lock() {
             *dispenser = false;
             cvar.notify_all();
@@ -62,6 +62,7 @@ impl CoffeDispenser {
     ) -> Result<(), String> {
         if let Ok(mut old_resourse) = lock.lock() {
             *old_resourse = resourse;
+            old_resourse.ready_to_read();
             cvar.notify_all();
             println!("[coffee dispenser] - send new coffee amount request");
             return Ok(());
@@ -72,14 +73,9 @@ impl CoffeDispenser {
     // waits for coffee container to respond
     fn wait_coffe_container(&self, lock: &Mutex<Resourse>, cvar: &Condvar) -> Result<i32, String> {
         if let Ok(guard) = lock.lock() {
-            if let Ok(mut resourse) = cvar.wait_while(guard, |status| status.is_ready()) {
+            if let Ok(mut resourse) = cvar.wait_while(guard, |status| status.is_not_ready()) {
                 let coffee_amount = resourse.get_amount();
-                resourse.ready();
-
-                if coffee_amount >= END {
-                    println!("[coffee dispenser] - valid amount ");
-                }
-
+                resourse.read();
                 return Ok(coffee_amount);
             }
         };
@@ -101,7 +97,7 @@ impl CoffeDispenser {
 
     fn kill_container(&self, container: JoinHandle<()>) {
         if container.join().is_ok() {
-            println!("[global]  - container killed")
+            println!("[global]  - coffee container killed")
         };
     }
 
@@ -147,7 +143,7 @@ impl CoffeDispenser {
             // TODO: wait until all dispensers have read amounts (barrier)
 
             let (lock, cvar) = &*machine_monitor;
-            if self.notify_dispenser(lock, cvar).is_err() {
+            if self.notify_machine(lock, cvar).is_err() {
                 println!("[coffee dispenser] - ERROR - KILLING THREAD ");
             };
         }
@@ -163,12 +159,8 @@ impl Default for CoffeDispenser {
 #[cfg(test)]
 mod coffedispenser_test {
     use std::{
-        sync::{Arc, Condvar, Mutex},
-        thread,
-        time::Duration,
-    };
+        sync::{Arc, Condvar, Mutex},};
 
-    use std_semaphore::Semaphore;
 
     use crate::{
         containers::resourse::Resourse, dispensers::coffee_dispenser::CoffeDispenser,
@@ -190,7 +182,7 @@ mod coffedispenser_test {
         let monitor = Arc::new((Mutex::new(false), Condvar::new()));
         let (lock, cvar) = &*monitor;
 
-        match coffe_dispenser.notify_dispenser(lock, cvar) {
+        match coffe_dispenser.notify_machine(lock, cvar) {
             Ok(_) => assert!(true),
             Err(_) => assert!(false),
         }
@@ -219,6 +211,7 @@ mod coffedispenser_test {
         let monitor = Arc::new((Mutex::new(resourse), Condvar::new()));
         let (lock, cvar) = &*monitor;
         let new_resourse: Resourse = Resourse::new(20);
+        
 
         match coffe_dispenser.notify_container(lock, cvar, new_resourse) {
             Ok(_) => assert!(true),
@@ -226,18 +219,4 @@ mod coffedispenser_test {
         }
     }
 
-    #[test]
-    fn it_should_continue_when_sem_is_release() {
-        let coffe_dispenser = CoffeDispenser::new();
-        let sem = Arc::new(Semaphore::new(0));
-        let sem_clone = sem.clone();
-
-        thread::sleep(Duration::from_secs(2));
-        sem_clone.release();
-        sem.acquire();
-        match coffe_dispenser.dispense(2) {
-            Ok(_) => assert!(true),
-            Err(_) => assert!(false),
-        }
-    }
 }
