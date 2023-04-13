@@ -10,6 +10,7 @@
 
 ### _Modelo y Resolución_ 
 
+**[deprecated]**\
 Desglozando el enunciado noto que N dispensadores que tengo por cafetera son en realidad uno por cada accion ya que por la condicion de que "Un solo dispenser a por vez puede tomar ingredientes de cada contenedor, es decir, no es posible por ejemplo que dos dispensers tomen café concurrentemente" me hace pensar que como mucho puedo tener a cada dispensador funcionando en simultaneo.
 
 Para que la cafetera pueda procesar otro pedido, todos los dispensers deben haber terminado. Para eso, lo que se pensó es usar unas variables de condicion que espere a que todos los dispensers den ok.
@@ -34,6 +35,17 @@ Como estos contenedores que solo son se sincronizan con otro contenedor que depe
 
 Por ultimo, se tiene a su vez un hilo por fuera de los dispensers que corresponde a un generador de datos estadisticos. Cada N seg imprime por stdout ciertos datos de la maquina. 
 
+---
+
+Luego de varias consultas por el canal de comunicacion de Discord, note que mi comprension del enunciado no era el correcto, por lo que tuve que cambiar mi modelo.
+
+Ahora le idea esta en que hay N dispensers que **todos** toman una orden y la realizan. Toman de a un recurso a la vez y cada contenedor de recurso puede aceptar a un solo dispenser a la vez para suministrarle la cantidad de recurso que necesita.
+
+El nuevo modelo planteado queda de la siguiente manera
+
+![Modelo v2](model.diagram.2.png)
+
+Se utilizó lo realizado para refactorizar y migrar al modelo planteado
 
 ### _Dificultades al modelar_
 

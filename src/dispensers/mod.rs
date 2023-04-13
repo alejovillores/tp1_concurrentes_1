@@ -1,1 +1,1 @@
-pub mod coffee_dispenser;
+pub mod dispenser;

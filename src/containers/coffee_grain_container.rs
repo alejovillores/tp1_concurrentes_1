@@ -17,8 +17,8 @@ impl CoffeeGrainContainer {
 
     #[allow(dead_code)]
     fn refill(&mut self, amount: i32) -> i32 {
-        if self.capacity >= amount {
-            println!("[coffe grain container] - amount valid");
+        if self.capacity >= amount && amount.is_positive() {
+            println!("[coffee grain container] - amount valid");
             self.capacity -= amount;
             return amount;
         };
@@ -44,7 +44,8 @@ impl CoffeeGrainContainer {
     #[allow(dead_code)]
     fn wait_refill(&mut self, lock: &Mutex<Resourse>, cvar: &Condvar) -> Result<i32, String> {
         if let Ok(guard) = lock.lock() {
-            if let Ok(mut resourse) = cvar.wait_while(guard, |status| status.is_not_ready()) {
+            let id = guard.get_dispenser_id();
+            if let Ok(mut resourse) = cvar.wait_while(guard, |status| status.is_not_ready(id)) {
                 let coffee_amount = resourse.get_amount();
                 println!(
                     "[coffee grain container] - coffe container asking for amount {}",
@@ -88,7 +89,7 @@ impl Container for CoffeeGrainContainer {
             let (lock, cvar) = &*request_monitor;
             if let Ok(amount) = self.wait_refill(lock, cvar) {
                 let refill_amount = self.refill(amount);
-                let resourse = Resourse::new(refill_amount);
+                let resourse = Resourse::new(refill_amount, 0);
 
                 let (res_lock, res_cvar) = &*response_monitor;
                 if self.signal_refill(res_lock, res_cvar, resourse).is_err() {
@@ -97,9 +98,7 @@ impl Container for CoffeeGrainContainer {
 
                 if refill_amount == EMPTY {
                     break;
-                } else {
-                    println!("[coffee grain container] - send new grain amount")
-                }
+                };
             }
         }
     }

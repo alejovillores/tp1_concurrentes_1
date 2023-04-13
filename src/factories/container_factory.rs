@@ -1,23 +1,31 @@
-use std::sync::Arc;
-
-use std_semaphore::Semaphore;
+use crate::helpers::ingredients::Ingredients;
 
 pub struct ContainerFactory {}
 
-pub enum Containers {
-    Coffe,
-    CoffeGrain,
-}
+const INGREDIENTS: [Ingredients; 6] = [
+    Ingredients::Coffee,
+    Ingredients::Milk,
+    Ingredients::Water,
+    Ingredients::Foam,
+    Ingredients::Cacao,
+    Ingredients::CoffeGrain,
+];
 
 impl ContainerFactory {
     pub fn new() -> Self {
         Self {}
     }
 
-    pub fn create(container_type: Containers, _sem: Arc<Semaphore>) {
-        match container_type {
-            Containers::Coffe => todo!(),
-            Containers::CoffeGrain => todo!(),
+    pub fn create_containers() {
+        for ingredient in INGREDIENTS.iter().copied() {
+            match ingredient {
+                Ingredients::Coffee => todo!(),
+                Ingredients::CoffeGrain => todo!(),
+                Ingredients::Milk => todo!(),
+                Ingredients::Foam => todo!(),
+                Ingredients::Cacao => todo!(),
+                Ingredients::Water => todo!(),
+            }
         }
     }
 }
