@@ -1,9 +1,11 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, VecDeque},
     sync::{Arc, Condvar, Mutex},
     thread::{self},
     time::Duration,
 };
+
+use std_semaphore::Semaphore;
 
 use crate::{
     containers::resourse::Resourse,
@@ -85,32 +87,17 @@ impl Dispenser {
         Ok(())
     }
 
-    // Signals coffee machine that dispenser finished
-    fn notify_machine(&self, lock: &Mutex<bool>, cvar: &Condvar) -> Result<(), String> {
-        // gonna be a struct
-        if let Ok(mut dispenser) = lock.lock() {
-            *dispenser = false;
-            cvar.notify_all();
-            println!("[dispenser {}] - send signal_finish", self.id);
-            return Ok(());
-        };
-        Err("[error] - ticket monitor failed in coffee dispenser".to_string())
-    }
-
     // Waits form a new ticket from coffee machine
-    fn wait_new_ticket(&self, lock: &Mutex<Ticket>, cvar: &Condvar) -> Result<Ticket, String> {
-        if let Ok(guard) = lock.lock() {
-            if let Ok(mut ticket) = cvar.wait_while(guard, |status| status.is_not_ready()) {
-                // clone ticket
-                let order = *ticket;
-                ticket.read();
-
+    fn wait_new_ticket(&self, lock: &Mutex<VecDeque<Ticket>>, sem: &Semaphore) -> Option<Ticket> {
+        sem.acquire();
+        if let Ok(mut ticket_vec) = lock.lock() {
+            if let Some(mut order) = ticket_vec.pop_back() {
+                order.read();
                 println!("[dispenser {}] - new order  ", self.id);
-
-                return Ok(order);
+                return Some(order);
             }
         };
-        Err("[error] - machine ready monitor failed".to_string())
+        None
     }
 
     // Signal a container that amount of ingredient needed
@@ -148,14 +135,13 @@ impl Dispenser {
 
     pub fn start(
         &self,
-        machine_monitor: Arc<(Mutex<bool>, Condvar)>,
-        order_monitor: Arc<(Mutex<Ticket>, Condvar)>,
+        machine_sem: Arc<Semaphore>,
+        order_lock: Arc<Mutex<VecDeque<Ticket>>>,
         containers_req_monitors: &HashMap<Ingredients, Arc<(Mutex<Resourse>, Condvar)>>,
         containers_res_monitors: &HashMap<Ingredients, Arc<(Mutex<Resourse>, Condvar)>>,
     ) {
         loop {
-            let (lock_order, cvar_order) = &*order_monitor;
-            if let Ok(order) = self.wait_new_ticket(lock_order, cvar_order) {
+            if let Some(order) = self.wait_new_ticket(&order_lock, &machine_sem) {
                 let order_status =
                     self.process_order(containers_req_monitors, containers_res_monitors, order);
 
@@ -163,19 +149,22 @@ impl Dispenser {
                     println!("[dispenser {} ] - killing dispenser ", self.id);
                     break;
                 }
+            } else {
+                println!("[dispenser {} ] - killing dispenser ", self.id);
+                break;
             }
-
-            let (lock, cvar) = &*machine_monitor;
-            if self.notify_machine(lock, cvar).is_err() {
-                println!("[dispenser {} ] - ERROR - KILLING THREAD ", self.id);
-            };
         }
     }
 }
 
 #[cfg(test)]
 mod dispenser_test {
-    use std::sync::{Arc, Condvar, Mutex};
+    use std::{
+        collections::VecDeque,
+        sync::{Arc, Condvar, Mutex},
+    };
+
+    use std_semaphore::Semaphore;
 
     use crate::{
         containers::resourse::Resourse, dispensers::dispenser::Dispenser, helpers::ticket::Ticket,
@@ -183,7 +172,7 @@ mod dispenser_test {
 
     #[test]
     fn it_should_dispense_2_sec_of_coffe() {
-        let dispenser = Dispenser::new(1);
+        let dispenser = Dispenser::new(0);
         match dispenser.dispense(2) {
             Ok(_) => assert!(true),
             Err(_) => assert!(false),
@@ -191,35 +180,23 @@ mod dispenser_test {
     }
 
     #[test]
-    fn it_should_signal_ready_when_finish() {
-        let dispenser = Dispenser::new(1);
-        let monitor = Arc::new((Mutex::new(false), Condvar::new()));
-        let (lock, cvar) = &*monitor;
-
-        match dispenser.notify_machine(lock, cvar) {
-            Ok(_) => assert!(true),
-            Err(_) => assert!(false),
-        }
-    }
-
-    #[test]
     fn it_should_return_10_when_wait_new_ticket_is_ready() {
-        let dispenser = Dispenser::new(1);
-        let mut ticket = Ticket::new(10);
+        let dispenser = Dispenser::new(0);
+        let mut q = VecDeque::new();
+        q.push_front(Ticket::new(10));
+        let ticket = Arc::new(Mutex::new(q));
 
-        ticket.ready_to_read();
-        let monitor = Arc::new((Mutex::new(ticket), Condvar::new()));
-        let (lock, cvar) = &*monitor;
+        let sem = Semaphore::new(1);
 
-        match dispenser.wait_new_ticket(lock, cvar) {
-            Ok(new_ticket) => assert_eq!(new_ticket.get_coffe_amount(), 10),
-            Err(_) => assert!(false),
+        match dispenser.wait_new_ticket(&ticket, &sem) {
+            Some(new_ticket) => assert_eq!(new_ticket.get_coffe_amount(), 10),
+            None => assert!(false),
         }
     }
 
     #[test]
     fn it_should_signal_when_new_coffe_amount_is_ready() {
-        let dispenser = Dispenser::new(1);
+        let dispenser = Dispenser::new(0);
         let resourse: Resourse = Resourse::new(0, dispenser.id);
 
         let monitor = Arc::new((Mutex::new(resourse), Condvar::new()));

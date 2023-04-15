@@ -47,6 +47,10 @@ El nuevo modelo planteado queda de la siguiente manera
 
 Se utilizó lo realizado para refactorizar y migrar al modelo planteado
 
+
+
+Primero se comenzó con 1 ingrediente y 1 dispenser, luego con 2 dispensers. Luego con 2 ingredientes y 2 dispensers, y asi.
+
 ### _Dificultades al modelar_
 
 Se noto, que dado que los contenedores deben comunicarse entre si por falta de suministro que no se recargue, se deben hacer un especie de request y response entre ellos. Por ejemplo, el contenedor de cafe molido, en caso de no tener cafe, debe enviarle una señal al contenedor de gramos de cafe para que este le proveea los gramos necesarios. Si este contenedor no tiene mas gramos para proveer, debe avisar al contedor de cafe molido, y este avisar al dispenser ya que no se podrá realizar mas cafe.
