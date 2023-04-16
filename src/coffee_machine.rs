@@ -9,7 +9,11 @@ use std_semaphore::Semaphore;
 use crate::{
     containers::{coffee_container::CoffeContainer, container::Container, resourse::Resourse},
     dispensers::dispenser::Dispenser,
-    helpers::{ingredients::Ingredients, ticket::Ticket},
+    helpers::{
+        ingredients::Ingredients,
+        order_manager::{self, OrderManager},
+        ticket::Ticket,
+    },
 };
 
 const DISPENSERS: i32 = 2;
@@ -21,11 +25,11 @@ const INGREDIENTS: [Ingredients; 5] = [
     Ingredients::Cacao,
 ];
 
-#[derive(Debug)]
 pub struct CoffeMachine {
     coffe_made: i32,
     req_monitors: HashMap<Ingredients, Arc<(Mutex<Resourse>, Condvar)>>,
     res_monitors: HashMap<Ingredients, Arc<(Mutex<Resourse>, Condvar)>>,
+    bussy_sem: HashMap<Ingredients, Arc<Semaphore>>,
 }
 
 impl CoffeMachine {
@@ -33,30 +37,13 @@ impl CoffeMachine {
         let coffe_made = 0;
         let req_monitors: HashMap<Ingredients, Arc<(Mutex<Resourse>, Condvar)>> = HashMap::new();
         let res_monitors: HashMap<Ingredients, Arc<(Mutex<Resourse>, Condvar)>> = HashMap::new();
+        let bussy_sem: HashMap<Ingredients, Arc<Semaphore>> = HashMap::new();
+
         Self {
             coffe_made,
             req_monitors,
             res_monitors,
-        }
-    }
-
-    fn init_containers_monitors(&mut self) {
-        for i in INGREDIENTS.iter().copied() {
-            match i {
-                Ingredients::Coffee => {
-                    let coffee_req_monitor =
-                        Arc::new((Mutex::new(Resourse::new(0, 0)), Condvar::new()));
-                    let coffee_res_monitor =
-                        Arc::new((Mutex::new(Resourse::new(0, 0)), Condvar::new()));
-                    self.req_monitors.insert(i, coffee_req_monitor);
-                    self.res_monitors.insert(i, coffee_res_monitor);
-                }
-                Ingredients::Milk => {}
-                Ingredients::Foam => {}
-                Ingredients::Cacao => {}
-                Ingredients::Water => {}
-                _ => {}
-            }
+            bussy_sem,
         }
     }
 
@@ -64,18 +51,24 @@ impl CoffeMachine {
         let mut containers = Vec::with_capacity(INGREDIENTS.len());
 
         for i in INGREDIENTS.iter().copied() {
+            let req_monitor = Arc::new((Mutex::new(Resourse::new(0)), Condvar::new()));
+            let res_monitor = Arc::new((Mutex::new(Resourse::new(0)), Condvar::new()));
+            let sem = Arc::new(Semaphore::new(1));
+
+            let request_monitor = req_monitor.clone();
+            let response_monitor = res_monitor.clone();
+            let sem_clone = sem.clone();
+
+            self.req_monitors.insert(i, req_monitor);
+            self.res_monitors.insert(i, res_monitor);
+            self.bussy_sem.insert(i, sem);
+
             match i {
                 Ingredients::Coffee => {
-                    if let Some(req) = self.req_monitors.get(&i) {
-                        if let Some(res) = self.res_monitors.get(&i) {
-                            let request_monitor = req.clone();
-                            let response_monitor = res.clone();
-                            containers.push(thread::spawn(move || {
-                                let mut coffe_container = CoffeContainer::new();
-                                coffe_container.start(request_monitor, response_monitor);
-                            }));
-                        }
-                    }
+                    containers.push(thread::spawn(move || {
+                        let mut coffe_container = CoffeContainer::new();
+                        coffe_container.start(request_monitor, response_monitor, sem_clone);
+                    }));
                 }
                 Ingredients::CoffeGrain => {}
                 Ingredients::Milk => {}
@@ -90,8 +83,7 @@ impl CoffeMachine {
 
     fn init_dispensers(
         &self,
-        machine_sem: Arc<Semaphore>,
-        order_lock: Arc<Mutex<VecDeque<Ticket>>>,
+        order_lock: Arc<(Mutex<OrderManager>, Condvar)>,
     ) -> Vec<JoinHandle<()>> {
         let mut dispensers = Vec::with_capacity(DISPENSERS as usize);
 
@@ -99,12 +91,12 @@ impl CoffeMachine {
             let req_monitors = self.req_monitors.clone();
             let res_monitors = self.res_monitors.clone();
             let order_monitor = order_lock.clone();
-            let m_monitor = machine_sem.clone();
+            let sems = self.bussy_sem.clone();
 
             dispensers.push(thread::spawn(move || {
                 println!("creating dispenser {}", i);
                 let dispenser = Dispenser::new(i);
-                dispenser.start(m_monitor, order_monitor, &req_monitors, &res_monitors);
+                dispenser.start(order_monitor, &req_monitors, &res_monitors, &sems);
             }));
         }
 
@@ -113,14 +105,14 @@ impl CoffeMachine {
 
     fn notify_new_ticket(
         &self,
-        lock: &Arc<Mutex<VecDeque<Ticket>>>,
-        sem: &Arc<Semaphore>,
+        lock: &Mutex<OrderManager>,
+        cvar: &Condvar,
         mut new_ticket: Ticket,
     ) -> Result<(), String> {
         if let Ok(mut ticket_vec) = lock.lock() {
             new_ticket.ready_to_read();
-            ticket_vec.push_front(new_ticket);
-            sem.release();
+            ticket_vec.add(new_ticket);
+            cvar.notify_all();
             return Ok(());
         };
         Err("[error] - ticket monitor failed".to_string())
@@ -131,30 +123,26 @@ impl CoffeMachine {
         if i == 3 {
             return Some(Ticket::new(-1));
         }
-        Some(Ticket::new(i * 10))
+        Some(Ticket::new(i * 2))
     }
 
     fn kill_dispensers(&self, dispensers: Vec<JoinHandle<()>>) {
         for d in dispensers {
             if d.join().is_ok() {
-                println!("[global]  - dispenser killed")
+                println!("[global]  - dispensers killed")
             };
         }
     }
 
     pub fn start(&mut self) {
-        let machine_sem = Arc::new(Semaphore::new(0));
-        let mut q = VecDeque::new();
-        let ticket_lock = Arc::new(Mutex::new(q));
-        self.init_containers_monitors();
+        let order_manager = Arc::new((Mutex::new(OrderManager::new()), Condvar::new()));
         let _containers = self.init_containers();
-        let dispensers = self.init_dispensers(machine_sem.clone(), ticket_lock.clone());
+        let dispensers = self.init_dispensers(order_manager.clone());
+        let (order_lock, cvar) = &*order_manager;
 
         for i in 1..4 {
-            // TODO: read new line
-            // create ticket
             match self.read_ticket(i) {
-                Some(ticket) => match self.notify_new_ticket(&ticket_lock, &machine_sem, ticket) {
+                Some(ticket) => match self.notify_new_ticket(order_lock, cvar, ticket) {
                     Ok(_) => {
                         println!("[coffe machine] - Coffe Machine send {} new ticket", i)
                     }
@@ -191,7 +179,10 @@ mod coffemachine_test {
 
     use crate::{
         coffee_machine::{CoffeMachine, DISPENSERS},
-        helpers::ticket::Ticket,
+        helpers::{
+            order_manager::OrderManager,
+            ticket::{self, Ticket},
+        },
     };
 
     #[test]
@@ -203,31 +194,31 @@ mod coffemachine_test {
     #[test]
     fn it_should_signal_coffe_dispenser() {
         let coffemachine: CoffeMachine = CoffeMachine::new();
-        let ticket = Ticket::new(0);
         let new_ticket = Ticket::new(10);
-        let mut q = VecDeque::new();
-        q.push_front(ticket);
-        let ticket_mut = Arc::new(Mutex::new(q));
-        let sem = Arc::new(Semaphore::new(0));
+        let q = OrderManager::new();
+        let monitor = Arc::new((Mutex::new(q), Condvar::new()));
+        let (order_lock, cvar) = &*monitor;
 
         let _ = coffemachine
-            .notify_new_ticket(&ticket_mut.clone(), &sem, new_ticket)
+            .notify_new_ticket(order_lock, cvar, new_ticket)
             .unwrap();
 
-        if let Ok(guard) = ticket_mut.lock() {
-            assert!(ticket.is_not_ready())
+        if let Ok(mut order_manager) =
+            cvar.wait_while(order_lock.lock().unwrap(), |status| status.empty())
+        {
+            if let Some(order) = order_manager.extract() {
+                assert!(!order.is_not_ready())
+            }
         };
     }
 
     #[test]
     fn it_should_initilize_dispensers() {
         let coffemachine: CoffeMachine = CoffeMachine::new();
-        let new_ticket = Ticket::new(10);
+        let q = OrderManager::new();
+        let monitor = Arc::new((Mutex::new(q), Condvar::new()));
 
-        let ticket_mut = Arc::new(Mutex::new(VecDeque::new()));
-        let sem = Arc::new(Semaphore::new(0));
-
-        let dispensers = coffemachine.init_dispensers(sem, ticket_mut);
+        let dispensers = coffemachine.init_dispensers(monitor);
         assert_eq!(dispensers.len(), DISPENSERS as usize)
     }
 }

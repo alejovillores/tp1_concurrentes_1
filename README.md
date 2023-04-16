@@ -51,6 +51,11 @@ Se utilizó lo realizado para refactorizar y migrar al modelo planteado
 
 Primero se comenzó con 1 ingrediente y 1 dispenser, luego con 2 dispensers. Luego con 2 ingredientes y 2 dispensers, y asi.
 
+Algo que sucedió, es que al utilizar los monitores de la manera que los estaba utilizando entre los contenedores y el dispenser perdia datos. Esto ocurria porque se hacia un notify pero el contenedor ya estaba realizando operaciones por lo que cuando volvia a la linea que debia esperar, ya ese Ticket se habia perdido.\
+La solucion pensada, es agregar un semaforos y Mutex, donde el Contenedor avisa que esta disponible a través de un release de recurso y el dispenser puede comunicarse con el Contenedor a traves de monitores.
+
+Otra cosa que dificultó la comunicacion entre los dispensers y la maquina es cuando esta ya no tiene mas pedidos. Es por eso que se creo OrderManager, que lo que hace es manejar un estado en que se encuentran los pedidos. Con esta implementacion, los dispensers saben cuando apagarse y cuando avisar a los contenedores que ya no hay mas pedidos.
+
 ### _Dificultades al modelar_
 
 Se noto, que dado que los contenedores deben comunicarse entre si por falta de suministro que no se recargue, se deben hacer un especie de request y response entre ellos. Por ejemplo, el contenedor de cafe molido, en caso de no tener cafe, debe enviarle una señal al contenedor de gramos de cafe para que este le proveea los gramos necesarios. Si este contenedor no tiene mas gramos para proveer, debe avisar al contedor de cafe molido, y este avisar al dispenser ya que no se podrá realizar mas cafe.

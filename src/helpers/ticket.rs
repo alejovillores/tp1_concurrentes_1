@@ -28,4 +28,8 @@ impl Ticket {
     pub fn get_coffe_amount(&self) -> i32 {
         self.coffe_amount
     }
+
+    pub fn last(&self) -> bool {
+        self.coffe_amount == -1
+    }
 }

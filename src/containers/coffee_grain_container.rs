@@ -1,5 +1,7 @@
 use std::sync::{Arc, Condvar, Mutex};
 
+use std_semaphore::Semaphore;
+
 use super::{container::Container, resourse::Resourse};
 
 const EMPTY: i32 = -1;
@@ -7,12 +9,17 @@ const CAPACITY: i32 = 2500;
 
 pub struct CoffeeGrainContainer {
     capacity: i32,
+    last_id_read: i32,
 }
 
 impl CoffeeGrainContainer {
     pub fn new() -> Self {
         let capacity = CAPACITY;
-        Self { capacity }
+        let last_id_read = 0;
+        Self {
+            capacity,
+            last_id_read,
+        }
     }
 
     #[allow(dead_code)]
@@ -41,11 +48,9 @@ impl CoffeeGrainContainer {
         EMPTY
     }
 
-    #[allow(dead_code)]
     fn wait_refill(&mut self, lock: &Mutex<Resourse>, cvar: &Condvar) -> Result<i32, String> {
         if let Ok(guard) = lock.lock() {
-            let id = guard.get_dispenser_id();
-            if let Ok(mut resourse) = cvar.wait_while(guard, |status| status.is_not_ready(id)) {
+            if let Ok(mut resourse) = cvar.wait_while(guard, |status| status.is_not_ready()) {
                 let coffee_amount = resourse.get_amount();
                 println!(
                     "[coffee grain container] - coffe container asking for amount {}",
@@ -84,12 +89,13 @@ impl Container for CoffeeGrainContainer {
         &mut self,
         request_monitor: Arc<(Mutex<Resourse>, Condvar)>,
         response_monitor: Arc<(Mutex<Resourse>, Condvar)>,
+        _bussy_sem: Arc<Semaphore>,
     ) {
         loop {
             let (lock, cvar) = &*request_monitor;
             if let Ok(amount) = self.wait_refill(lock, cvar) {
                 let refill_amount = self.refill(amount);
-                let resourse = Resourse::new(refill_amount, 0);
+                let resourse = Resourse::new(refill_amount);
 
                 let (res_lock, res_cvar) = &*response_monitor;
                 if self.signal_refill(res_lock, res_cvar, resourse).is_err() {
