@@ -9,16 +9,13 @@ const CAPACITY: i32 = 2500;
 
 pub struct CoffeeGrainContainer {
     capacity: i32,
-    last_id_read: i32,
 }
 
 impl CoffeeGrainContainer {
     pub fn new() -> Self {
         let capacity = CAPACITY;
-        let last_id_read = 0;
         Self {
             capacity,
-            last_id_read,
         }
     }
 

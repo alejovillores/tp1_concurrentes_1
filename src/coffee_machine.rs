@@ -1,5 +1,5 @@
 use std::{
-    collections::{HashMap, VecDeque},
+    collections::HashMap,
     sync::{Arc, Condvar, Mutex},
     thread::{self, JoinHandle},
 };
@@ -7,11 +7,11 @@ use std::{
 use std_semaphore::Semaphore;
 
 use crate::{
-    containers::{coffee_container::CoffeContainer, container::Container, resourse::Resourse},
+    containers::{coffee_container::CoffeContainer, container::Container, resourse::Resourse, water_container::WaterContainer},
     dispensers::dispenser::Dispenser,
     helpers::{
         ingredients::Ingredients,
-        order_manager::{self, OrderManager},
+        order_manager::OrderManager,
         ticket::Ticket,
     },
 };
@@ -26,7 +26,7 @@ const INGREDIENTS: [Ingredients; 5] = [
 ];
 
 pub struct CoffeMachine {
-    coffe_made: i32,
+    _coffe_made: i32,
     req_monitors: HashMap<Ingredients, Arc<(Mutex<Resourse>, Condvar)>>,
     res_monitors: HashMap<Ingredients, Arc<(Mutex<Resourse>, Condvar)>>,
     bussy_sem: HashMap<Ingredients, Arc<Semaphore>>,
@@ -34,13 +34,13 @@ pub struct CoffeMachine {
 
 impl CoffeMachine {
     pub fn new() -> Self {
-        let coffe_made = 0;
+        let _coffe_made = 0;
         let req_monitors: HashMap<Ingredients, Arc<(Mutex<Resourse>, Condvar)>> = HashMap::new();
         let res_monitors: HashMap<Ingredients, Arc<(Mutex<Resourse>, Condvar)>> = HashMap::new();
         let bussy_sem: HashMap<Ingredients, Arc<Semaphore>> = HashMap::new();
 
         Self {
-            coffe_made,
+            _coffe_made,
             req_monitors,
             res_monitors,
             bussy_sem,
@@ -74,7 +74,12 @@ impl CoffeMachine {
                 Ingredients::Milk => {}
                 Ingredients::Foam => {}
                 Ingredients::Cacao => {}
-                Ingredients::Water => {}
+                Ingredients::Water => {
+                    containers.push(thread::spawn(move || {
+                        let mut water_container = WaterContainer::new();
+                        water_container.start(request_monitor, response_monitor, sem_clone);
+                    }));
+                }
             }
         }
 
@@ -94,7 +99,6 @@ impl CoffeMachine {
             let sems = self.bussy_sem.clone();
 
             dispensers.push(thread::spawn(move || {
-                println!("creating dispenser {}", i);
                 let dispenser = Dispenser::new(i);
                 dispenser.start(order_monitor, &req_monitors, &res_monitors, &sems);
             }));
@@ -121,9 +125,9 @@ impl CoffeMachine {
     //TODO: make reader
     fn read_ticket(&self, i: i32) -> Option<Ticket> {
         if i == 3 {
-            return Some(Ticket::new(-1));
+            return Some(Ticket::new(-1, -1));
         }
-        Some(Ticket::new(i * 2))
+        Some(Ticket::new(i * 2, i))
     }
 
     fn kill_dispensers(&self, dispensers: Vec<JoinHandle<()>>) {
@@ -171,30 +175,27 @@ impl Default for CoffeMachine {
 #[cfg(test)]
 mod coffemachine_test {
     use std::{
-        collections::VecDeque,
         sync::{Arc, Condvar, Mutex},
     };
-
-    use std_semaphore::Semaphore;
 
     use crate::{
         coffee_machine::{CoffeMachine, DISPENSERS},
         helpers::{
             order_manager::OrderManager,
-            ticket::{self, Ticket},
+            ticket::Ticket,
         },
     };
 
     #[test]
     fn it_should_initialize_with_0_coffe_made() {
         let coffemachine: CoffeMachine = CoffeMachine::new();
-        assert_eq!(coffemachine.coffe_made, 0);
+        assert_eq!(coffemachine._coffe_made, 0);
     }
 
     #[test]
     fn it_should_signal_coffe_dispenser() {
         let coffemachine: CoffeMachine = CoffeMachine::new();
-        let new_ticket = Ticket::new(10);
+        let new_ticket = Ticket::new(10,10);
         let q = OrderManager::new();
         let monitor = Arc::new((Mutex::new(q), Condvar::new()));
         let (order_lock, cvar) = &*monitor;
