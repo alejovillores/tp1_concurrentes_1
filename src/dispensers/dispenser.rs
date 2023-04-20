@@ -41,111 +41,67 @@ impl Dispenser {
         let mut status = FINISH_FLAG;
         for ingredient in INGREDIENTS.iter().copied() {
             match ingredient {
-                Ingredients::Coffee => {
-                    let resourse = Resourse::new(order.get_coffe_amount());
-
-                    if let Some(sem) = containers_sem.get(&ingredient) {
-                        sem.acquire();
-                        println!("[dispenser {}] has access ", self.id);
-
-                        if let Some(monitor) = req_monitors.get(&ingredient) {
-                            let (lock_req, cvar_req) = monitor.as_ref();
-                            println!(
-                                "[dispenser {}] - send amount of {} coffee units to coffee container",
-                                self.id,
-                                resourse.get_amount()
-                            );
-                            if self.notify_container(lock_req, cvar_req, resourse).is_err() {
-                                println!("[dispenser {}] fail requesting resourse", self.id)
-                            }
-                        }
-
-                        if let Some(monitor) = res_monitors.get(&ingredient) {
-                            let (res_lock, res_cvar) = monitor.as_ref();
-                            if let Ok(coffee_delivered) = self.wait_container(res_lock, res_cvar) {
-                                if coffee_delivered == FINISH_FLAG {
-                                    status = FINISH_FLAG;
-                                } else if self.dispense(coffee_delivered).is_err() {
-                                    println!("[dispenser {}] fail dispensign coffee", self.id)
-                                } else {
-                                    status = coffee_delivered;
-                                }
-                            }
-                        }
-                    }
-                }
-                Ingredients::CoffeGrain => todo!(),
                 Ingredients::Milk => println!("[dispenser {}] no milk", self.id),
                 Ingredients::Foam => println!("[dispenser {}] no foam", self.id),
-                Ingredients::Cacao => {
+                Ingredients::CoffeGrain => {}
+                _ => {
                     let resourse = Resourse::new(order.get_cacao_amount());
 
                     if let Some(sem) = containers_sem.get(&ingredient) {
                         sem.acquire();
                         println!("[dispenser {}] has access ", self.id);
-
-                        if let Some(monitor) = req_monitors.get(&ingredient) {
-                            let (lock_req, cvar_req) = monitor.as_ref();
-                            println!(
-                                "[dispenser {}] - send amount of {} cacao units to cacao container",
-                                self.id,
-                                resourse.get_amount()
-                            );
-                            if self.notify_container(lock_req, cvar_req, resourse).is_err() {
-                                println!("[dispenser {}] fail requesting resourse", self.id)
-                            }
-                        }
-
-                        if let Some(monitor) = res_monitors.get(&ingredient) {
-                            let (res_lock, res_cvar) = monitor.as_ref();
-                            if let Ok(cacao_delivered) = self.wait_container(res_lock, res_cvar) {
-                                if cacao_delivered == FINISH_FLAG {
-                                    status = FINISH_FLAG;
-                                } else if self.dispense(cacao_delivered).is_err() {
-                                    println!("[dispenser {}] fail dispensign cacao", self.id)
-                                } else {
-                                    status = cacao_delivered;
-                                }
-                            }
-                        }
-                    }
-                }
-                Ingredients::Water => {
-                    let resourse = Resourse::new(order.get_water_amount());
-
-                    if let Some(sem) = containers_sem.get(&ingredient) {
-                        sem.acquire();
-                        println!("[dispenser {}] has access ", self.id);
-
-                        if let Some(monitor) = req_monitors.get(&ingredient) {
-                            let (lock_req, cvar_req) = monitor.as_ref();
-                            println!(
-                                "[dispenser {}] - send amount of {} water units to water container",
-                                self.id,
-                                resourse.get_amount()
-                            );
-                            if self.notify_container(lock_req, cvar_req, resourse).is_err() {
-                                println!("[dispenser {}] fail requesting resourse", self.id)
-                            }
-                        }
-
-                        if let Some(monitor) = res_monitors.get(&ingredient) {
-                            let (res_lock, res_cvar) = monitor.as_ref();
-                            if let Ok(water_delivered) = self.wait_container(res_lock, res_cvar) {
-                                if water_delivered == FINISH_FLAG {
-                                    status = FINISH_FLAG;
-                                } else if self.dispense(water_delivered).is_err() {
-                                    println!("[dispenser {}] fail dispensign water", self.id)
-                                } else {
-                                    status = water_delivered;
-                                }
-                            }
+                        if let Ok(res) = self.process_ingredient(
+                            req_monitors,
+                            res_monitors,
+                            resourse,
+                            ingredient,
+                        ) {
+                            status = res;
                         }
                     }
                 }
             }
         }
         status
+    }
+
+    // try to ask for an amount of ingredient and wait for response.
+    fn process_ingredient(
+        &self,
+        req_monitors: &HashMap<Ingredients, Arc<(Mutex<Resourse>, Condvar)>>,
+        res_monitors: &HashMap<Ingredients, Arc<(Mutex<Resourse>, Condvar)>>,
+        resourse: Resourse,
+        ingredient: Ingredients,
+    ) -> Result<i32, String> {
+        if let Some(monitor) = req_monitors.get(&ingredient) {
+            let (lock_req, cvar_req) = monitor.as_ref();
+            println!(
+                "[dispenser {}] - send amount of {} , {:?} units to container",
+                self.id,
+                resourse.get_amount(),
+                ingredient
+            );
+            if self.notify_container(lock_req, cvar_req, resourse).is_err() {
+                println!("[dispenser {}] fail requesting resourse", self.id)
+            }
+        }
+
+        if let Some(monitor) = res_monitors.get(&ingredient) {
+            let (res_lock, res_cvar) = monitor.as_ref();
+            if let Ok(res_delivered) = self.wait_container(res_lock, res_cvar) {
+                if res_delivered == FINISH_FLAG {
+                    return Ok(FINISH_FLAG);
+                } else if self.dispense(res_delivered).is_err() {
+                    println!("[dispenser {}] fail dispensign {:?}", self.id, ingredient);
+                    return Err("[error] - dispenser resourse monitor failed".to_string());
+                } else {
+                    return Ok(res_delivered);
+                }
+            }
+            return Err("[error] - dispenser resourse monitor failed".to_string());
+        }
+
+        return Err("[error] - dispenser resourse no monitor found".to_string());
     }
 
     // Simulate dispense time
