@@ -216,4 +216,6 @@ mod coffemachine_test {
         let dispensers = coffemachine.init_dispensers(monitor);
         assert_eq!(dispensers.len(), DISPENSERS as usize)
     }
+
+    
 }

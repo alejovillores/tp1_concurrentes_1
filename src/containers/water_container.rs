@@ -93,7 +93,7 @@ impl Container for WaterContainer {
             let (lock, cvar) = &*request_monitor;
             println!("[water container] - waiting for request");
             if let Ok(res) = self.wait_dispenser(lock, cvar) {
-                println!("[coffee container] - attempting to consume amount {}", res);
+                println!("[water container] - attempting to consume amount {}", res);
 
                 if let Ok(amounte_consumed) = self.consume(res) {
                     let (res_lock, res_cvar) = &*response_monitor;
