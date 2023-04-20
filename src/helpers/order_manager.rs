@@ -1,5 +1,5 @@
-use std::collections::VecDeque;
 use super::order::Order;
+use std::collections::VecDeque;
 
 enum StatusFlag {
     LastOrder,
@@ -44,46 +44,37 @@ impl OrderManager {
                         self.status = StatusFlag::NoMoreOrders;
                     }
                     _ => {
-                        if self.orders.is_empty(){
+                        if self.orders.is_empty() {
                             self.status = StatusFlag::Empty;
-                        }
-                        else {
+                        } else {
                             self.status = StatusFlag::NotEmpty;
-                            
                         }
                     }
                 }
 
                 self.orders_extracted += 1;
-                return Some(t);
+                Some(t)
             }
             None => {
                 self.status = StatusFlag::Empty;
-                return None;
+                None
             }
         }
     }
 
     pub fn empty(&self) -> bool {
-        match self.status {
-            StatusFlag::Empty => return true,
-            _ => return false,
-        }
+        matches!(self.status, StatusFlag::Empty)
     }
 
-    pub fn no_more_orders(&self) ->bool {
-        match self.status {
-            StatusFlag::NoMoreOrders => return true,
-            _ => return false,
-        }
+    pub fn no_more_orders(&self) -> bool {
+        matches!(self.status, StatusFlag::NoMoreOrders)
     }
 
-    pub fn orders_in_qeue(&self) -> usize{
+    pub fn orders_in_qeue(&self) -> usize {
         self.orders.len()
     }
 
-    pub fn orders_made(&self) -> i32{
+    pub fn orders_made(&self) -> i32 {
         self.orders_extracted
     }
-
 }
