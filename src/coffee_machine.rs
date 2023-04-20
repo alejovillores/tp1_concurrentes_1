@@ -13,11 +13,12 @@ use crate::{
     },
     dispensers::dispenser::Dispenser,
     helpers::{
-        ingredients::Ingredients, order::Order, order_manager::OrderManager, resourse::Resourse,
+        ingredients::Ingredients, order::Order, order_manager::OrderManager, resourse::Resourse, stats_presenter::StatsPresenter,
     },
 };
 
 const DISPENSERS: i32 = 2;
+const TIME:u64 = 5;
 const INGREDIENTS: [Ingredients; 5] = [
     Ingredients::Coffee,
     Ingredients::Milk,
@@ -125,6 +126,13 @@ impl CoffeMachine {
         Err("[error] - ticket monitor failed".to_string())
     }
 
+    fn init_stat_presenter(&mut self,dispensers: &mut Vec<JoinHandle<()>>, order_lock:Arc<(Mutex<OrderManager>, Condvar)>){
+        dispensers.push(thread::spawn(move || {
+            let dispenser = StatsPresenter::new(TIME);
+            dispenser.start(order_lock);
+        }));
+    }
+
     //TODO: make reader
     fn read_ticket(&self, i: i32) -> Option<Order> {
         if i == 3 {
@@ -144,7 +152,8 @@ impl CoffeMachine {
     pub fn start(&mut self) {
         let order_manager = Arc::new((Mutex::new(OrderManager::new()), Condvar::new()));
         let _containers = self.init_containers();
-        let dispensers = self.init_dispensers(order_manager.clone());
+        let mut dispensers = self.init_dispensers(order_manager.clone());
+        self.init_stat_presenter(&mut dispensers,order_manager.clone());
         let (order_lock, cvar) = &*order_manager;
 
         for i in 1..4 {

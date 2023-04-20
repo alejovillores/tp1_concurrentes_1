@@ -1,6 +1,4 @@
 use std::collections::VecDeque;
-use std::time::SystemTime;
-
 use super::order::Order;
 
 enum StatusFlag {
@@ -45,14 +43,22 @@ impl OrderManager {
                     StatusFlag::LastOrder => {
                         self.status = StatusFlag::NoMoreOrders;
                     }
-                    _ => {}
+                    _ => {
+                        if self.orders.is_empty(){
+                            self.status = StatusFlag::Empty;
+                        }
+                        else {
+                            self.status = StatusFlag::NotEmpty;
+                            
+                        }
+                    }
                 }
 
                 self.orders_extracted += 1;
                 return Some(t);
             }
             None => {
-                self.status = StatusFlag::NoMoreOrders;
+                self.status = StatusFlag::Empty;
                 return None;
             }
         }
@@ -64,4 +70,20 @@ impl OrderManager {
             _ => return false,
         }
     }
+
+    pub fn no_more_orders(&self) ->bool {
+        match self.status {
+            StatusFlag::NoMoreOrders => return true,
+            _ => return false,
+        }
+    }
+
+    pub fn orders_in_qeue(&self) -> usize{
+        self.orders.len()
+    }
+
+    pub fn orders_made(&self) -> i32{
+        self.orders_extracted
+    }
+
 }

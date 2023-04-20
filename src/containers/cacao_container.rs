@@ -1,7 +1,7 @@
 use std::sync::{Condvar, Mutex};
 
 use super::container::Container;
-use crate::helpers::{self, resourse::Resourse};
+use crate::helpers::resourse::Resourse;
 
 const N: i32 = 1000;
 const FINISH_FLAG: i32 = -1;
