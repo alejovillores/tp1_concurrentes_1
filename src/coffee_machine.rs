@@ -7,13 +7,12 @@ use std::{
 use std_semaphore::Semaphore;
 
 use crate::{
-    containers::{coffee_container::CoffeContainer, container::Container, resourse::Resourse, water_container::WaterContainer},
-    dispensers::dispenser::Dispenser,
-    helpers::{
-        ingredients::Ingredients,
-        order_manager::OrderManager,
-        ticket::Ticket,
+    containers::{
+        coffee_container::CoffeContainer, container::Container, resourse::Resourse,
+        water_container::WaterContainer,
     },
+    dispensers::dispenser::Dispenser,
+    helpers::{ingredients::Ingredients, order_manager::OrderManager, ticket::Ticket},
 };
 
 const DISPENSERS: i32 = 2;
@@ -174,16 +173,11 @@ impl Default for CoffeMachine {
 
 #[cfg(test)]
 mod coffemachine_test {
-    use std::{
-        sync::{Arc, Condvar, Mutex},
-    };
+    use std::sync::{Arc, Condvar, Mutex};
 
     use crate::{
         coffee_machine::{CoffeMachine, DISPENSERS},
-        helpers::{
-            order_manager::OrderManager,
-            ticket::Ticket,
-        },
+        helpers::{order_manager::OrderManager, ticket::Ticket},
     };
 
     #[test]
@@ -195,7 +189,7 @@ mod coffemachine_test {
     #[test]
     fn it_should_signal_coffe_dispenser() {
         let coffemachine: CoffeMachine = CoffeMachine::new();
-        let new_ticket = Ticket::new(10,10);
+        let new_ticket = Ticket::new(10, 10);
         let q = OrderManager::new();
         let monitor = Arc::new((Mutex::new(q), Condvar::new()));
         let (order_lock, cvar) = &*monitor;

@@ -14,9 +14,7 @@ pub struct CoffeeGrainContainer {
 impl CoffeeGrainContainer {
     pub fn new() -> Self {
         let capacity = CAPACITY;
-        Self {
-            capacity,
-        }
+        Self { capacity }
     }
 
     #[allow(dead_code)]

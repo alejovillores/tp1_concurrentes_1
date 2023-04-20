@@ -1,12 +1,12 @@
 #[derive(Debug, Clone, Copy)]
 pub struct Ticket {
     coffe_amount: i32,
-    water_amount:i32,
+    water_amount: i32,
     not_ready: bool,
 }
 
 impl Ticket {
-    pub fn new(coffe_amount: i32, water_amount:i32) -> Self {
+    pub fn new(coffe_amount: i32, water_amount: i32) -> Self {
         let not_ready = true;
         Self {
             coffe_amount,
