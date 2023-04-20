@@ -1,6 +1,7 @@
 use std::sync::{Condvar, Mutex};
 
-use super::{container::Container, resourse::Resourse};
+use super::container::Container;
+use crate::helpers::{self, resourse::Resourse};
 
 const N: i32 = 1000;
 const FINISH_FLAG: i32 = -1;
@@ -65,14 +66,8 @@ impl CacaoContainer {
 impl Container for CacaoContainer {
     fn start(
         &mut self,
-        request_monitor: std::sync::Arc<(
-            std::sync::Mutex<super::resourse::Resourse>,
-            std::sync::Condvar,
-        )>,
-        response_monitor: std::sync::Arc<(
-            std::sync::Mutex<super::resourse::Resourse>,
-            std::sync::Condvar,
-        )>,
+        request_monitor: std::sync::Arc<(std::sync::Mutex<Resourse>, std::sync::Condvar)>,
+        response_monitor: std::sync::Arc<(std::sync::Mutex<Resourse>, std::sync::Condvar)>,
         bussy_sem: std::sync::Arc<std_semaphore::Semaphore>,
     ) {
         loop {
@@ -100,7 +95,8 @@ impl Container for CacaoContainer {
 mod cacao_container_test {
     use std::sync::{Arc, Condvar, Mutex};
 
-    use crate::containers::{cacao_container::CacaoContainer, resourse::Resourse};
+    use crate::containers::cacao_container::CacaoContainer;
+    use crate::helpers::resourse::Resourse;
 
     #[test]
     fn it_should_init_with_n() {

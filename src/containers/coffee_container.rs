@@ -1,8 +1,7 @@
 use std_semaphore::Semaphore;
 
-use super::{
-    coffee_grain_container::CoffeeGrainContainer, container::Container, resourse::Resourse,
-};
+use super::{coffee_grain_container::CoffeeGrainContainer, container::Container};
+use crate::helpers::resourse::Resourse;
 use std::{
     sync::{Arc, Condvar, Mutex},
     thread::{self, JoinHandle},
@@ -233,10 +232,8 @@ impl Container for CoffeContainer {
 mod coffecontainer_test {
     use std::sync::{Arc, Condvar, Mutex};
 
-    use crate::containers::{
-        coffee_container::{CoffeContainer, CAPACITY},
-        resourse::Resourse,
-    };
+    use crate::containers::coffee_container::{CoffeContainer, CAPACITY};
+    use crate::helpers::resourse::Resourse;
 
     #[test]
     fn it_should_init_with_0() {

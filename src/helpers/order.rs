@@ -1,14 +1,14 @@
 const INGREDIENTS: i32 = 3;
 
 #[derive(Debug, Clone, Copy)]
-pub struct Ticket {
+pub struct Order {
     coffe_amount: i32,
     water_amount: i32,
     cacao_amount: i32,
     not_ready: bool,
 }
 
-impl Ticket {
+impl Order {
     pub fn new(coffe_amount: i32, water_amount: i32, cacao_amount: i32) -> Self {
         let not_ready = true;
         Self {

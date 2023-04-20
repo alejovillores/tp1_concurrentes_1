@@ -2,7 +2,9 @@ use std::sync::{Arc, Condvar, Mutex};
 
 use std_semaphore::Semaphore;
 
-use super::{container::Container, resourse::Resourse};
+use crate::helpers::resourse::Resourse;
+
+use super::container::Container;
 
 const EMPTY: i32 = -1;
 const CAPACITY: i32 = 2500;

@@ -1,6 +1,7 @@
 use std::collections::VecDeque;
+use std::time::SystemTime;
 
-use super::ticket::Ticket;
+use super::order::Order;
 
 enum StatusFlag {
     LastOrder,
@@ -11,17 +12,24 @@ enum StatusFlag {
 
 pub struct OrderManager {
     status: StatusFlag,
-    orders: VecDeque<Ticket>,
+    orders: VecDeque<Order>,
+    orders_extracted: i32,
 }
 
 impl OrderManager {
     pub fn new() -> Self {
         let status = StatusFlag::Empty;
-        let orders: VecDeque<Ticket> = VecDeque::new();
-        Self { status, orders }
+        let orders: VecDeque<Order> = VecDeque::new();
+        let orders_extracted = 0;
+
+        Self {
+            status,
+            orders,
+            orders_extracted,
+        }
     }
 
-    pub fn add(&mut self, ticket: Ticket) {
+    pub fn add(&mut self, ticket: Order) {
         if ticket.last() {
             self.status = StatusFlag::LastOrder;
         } else {
@@ -30,7 +38,7 @@ impl OrderManager {
         self.orders.push_back(ticket)
     }
 
-    pub fn extract(&mut self) -> Option<Ticket> {
+    pub fn extract(&mut self) -> Option<Order> {
         match self.orders.pop_front() {
             Some(t) => {
                 match self.status {
@@ -39,6 +47,8 @@ impl OrderManager {
                     }
                     _ => {}
                 }
+
+                self.orders_extracted += 1;
                 return Some(t);
             }
             None => {

@@ -1,7 +1,8 @@
 use std_semaphore::Semaphore;
 
-use super::resourse::Resourse;
 use std::sync::{Arc, Condvar, Mutex};
+
+use crate::helpers::resourse::Resourse;
 
 pub trait Container {
     fn start(

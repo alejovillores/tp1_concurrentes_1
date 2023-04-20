@@ -4,7 +4,9 @@ use std::{
     time::Duration,
 };
 
-use super::{container::Container, resourse::Resourse};
+use crate::helpers::resourse::Resourse;
+
+use super::container::Container;
 
 const CAPACITY: i32 = 100;
 const FINISH_FLAG: i32 = -1;

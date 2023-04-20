@@ -9,10 +9,12 @@ use std_semaphore::Semaphore;
 use crate::{
     containers::{
         cacao_container::CacaoContainer, coffee_container::CoffeContainer, container::Container,
-        resourse::Resourse, water_container::WaterContainer,
+        water_container::WaterContainer,
     },
     dispensers::dispenser::Dispenser,
-    helpers::{ingredients::Ingredients, order_manager::OrderManager, ticket::Ticket},
+    helpers::{
+        ingredients::Ingredients, order::Order, order_manager::OrderManager, resourse::Resourse,
+    },
 };
 
 const DISPENSERS: i32 = 2;
@@ -25,7 +27,6 @@ const INGREDIENTS: [Ingredients; 5] = [
 ];
 
 pub struct CoffeMachine {
-    _coffe_made: i32,
     req_monitors: HashMap<Ingredients, Arc<(Mutex<Resourse>, Condvar)>>,
     res_monitors: HashMap<Ingredients, Arc<(Mutex<Resourse>, Condvar)>>,
     bussy_sem: HashMap<Ingredients, Arc<Semaphore>>,
@@ -33,13 +34,11 @@ pub struct CoffeMachine {
 
 impl CoffeMachine {
     pub fn new() -> Self {
-        let _coffe_made = 0;
         let req_monitors: HashMap<Ingredients, Arc<(Mutex<Resourse>, Condvar)>> = HashMap::new();
         let res_monitors: HashMap<Ingredients, Arc<(Mutex<Resourse>, Condvar)>> = HashMap::new();
         let bussy_sem: HashMap<Ingredients, Arc<Semaphore>> = HashMap::new();
 
         Self {
-            _coffe_made,
             req_monitors,
             res_monitors,
             bussy_sem,
@@ -115,7 +114,7 @@ impl CoffeMachine {
         &self,
         lock: &Mutex<OrderManager>,
         cvar: &Condvar,
-        mut new_ticket: Ticket,
+        mut new_ticket: Order,
     ) -> Result<(), String> {
         if let Ok(mut ticket_vec) = lock.lock() {
             new_ticket.ready_to_read();
@@ -127,11 +126,11 @@ impl CoffeMachine {
     }
 
     //TODO: make reader
-    fn read_ticket(&self, i: i32) -> Option<Ticket> {
+    fn read_ticket(&self, i: i32) -> Option<Order> {
         if i == 3 {
-            return Some(Ticket::new(-1, -1, -1));
+            return Some(Order::new(-1, -1, -1));
         }
-        Some(Ticket::new(i * 2, i, i * 3))
+        Some(Order::new(i * 2, i, i * 3))
     }
 
     fn kill_dispensers(&self, dispensers: Vec<JoinHandle<()>>) {
@@ -182,19 +181,13 @@ mod coffemachine_test {
 
     use crate::{
         coffee_machine::{CoffeMachine, DISPENSERS},
-        helpers::{order_manager::OrderManager, ticket::Ticket},
+        helpers::{order::Order, order_manager::OrderManager},
     };
-
-    #[test]
-    fn it_should_initialize_with_0_coffe_made() {
-        let coffemachine: CoffeMachine = CoffeMachine::new();
-        assert_eq!(coffemachine._coffe_made, 0);
-    }
 
     #[test]
     fn it_should_signal_coffe_dispenser() {
         let coffemachine: CoffeMachine = CoffeMachine::new();
-        let new_ticket = Ticket::new(10, 10, 10);
+        let new_ticket = Order::new(10, 10, 10);
         let q = OrderManager::new();
         let monitor = Arc::new((Mutex::new(q), Condvar::new()));
         let (order_lock, cvar) = &*monitor;

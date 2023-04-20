@@ -8,8 +8,8 @@ use std::{
 use std_semaphore::Semaphore;
 
 use crate::{
-    containers::resourse::Resourse,
-    helpers::{ingredients::Ingredients, order_manager::OrderManager, ticket::Ticket},
+    helpers::resourse::Resourse,
+    helpers::{ingredients::Ingredients, order::Order, order_manager::OrderManager},
 };
 
 const FINISH_FLAG: i32 = -1;
@@ -35,7 +35,7 @@ impl Dispenser {
         &self,
         req_monitors: &HashMap<Ingredients, Arc<(Mutex<Resourse>, Condvar)>>,
         res_monitors: &HashMap<Ingredients, Arc<(Mutex<Resourse>, Condvar)>>,
-        order: Ticket,
+        order: Order,
         containers_sem: &HashMap<Ingredients, Arc<Semaphore>>,
     ) -> i32 {
         let mut status = FINISH_FLAG;
@@ -115,7 +115,7 @@ impl Dispenser {
     }
 
     // Waits form a new ticket from coffee machine
-    fn wait_new_ticket(&self, lock: &Mutex<OrderManager>, cvar: &Condvar) -> Option<Ticket> {
+    fn wait_new_ticket(&self, lock: &Mutex<OrderManager>, cvar: &Condvar) -> Option<Order> {
         if let Ok(guard) = lock.lock() {
             if let Ok(mut order_manager) = cvar.wait_while(guard, |status| status.empty()) {
                 if let Some(mut order) = order_manager.extract() {
@@ -198,9 +198,9 @@ mod dispenser_test {
     use std::sync::{Arc, Condvar, Mutex};
 
     use crate::{
-        containers::resourse::Resourse,
         dispensers::dispenser::Dispenser,
-        helpers::{order_manager::OrderManager, ticket::Ticket},
+        helpers::resourse::Resourse,
+        helpers::{order::Order, order_manager::OrderManager},
     };
 
     #[test]
@@ -216,7 +216,7 @@ mod dispenser_test {
     fn it_should_return_10_when_wait_new_ticket_is_ready() {
         let dispenser = Dispenser::new(0);
         let mut q = OrderManager::new();
-        q.add(Ticket::new(10, 10, 10));
+        q.add(Order::new(10, 10, 10));
 
         let ticket = Arc::new((Mutex::new(q), Condvar::new()));
         let (order_lock, cvar) = &*ticket;
