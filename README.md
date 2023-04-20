@@ -42,20 +42,34 @@ Ahora le idea esta en que hay N dispensers que **todos** toman una orden y la re
 
 El nuevo modelo planteado queda de la siguiente manera
 
-![Modelo v2](model.diagram.2.png)
+![Modelo V2](model.diagram.2.png)
 
 Se utilizó lo realizado para refactorizar y migrar al modelo planteado
 
-Primero se comenzó con 1 ingrediente y 1 dispenser, luego con 2 dispensers. Luego con 2 ingredientes y 2 dispensers, y asi.
+Primero se comenzó con 1 ingrediente y 1 dispenser, luego con 2 dispensers. Luego con 2 ingredientes y 2 dispensers, y asi agrandando el modelo.
 
 Algo que sucedió, es que al utilizar los monitores de la manera que los estaba utilizando entre los contenedores y el dispenser perdia datos. Esto ocurria porque se hacia un notify pero el contenedor ya estaba realizando operaciones por lo que cuando volvia a la linea que debia esperar, ya ese Order se habia perdido.\
-La solucion pensada, es agregar un semaforos y Mutex, donde el Contenedor avisa que esta disponible a través de un release de recurso y el dispenser puede comunicarse con el Contenedor a traves de monitores.
+La solucion pensada, fue agregar un semaforo, donde el Contenedor avisa que esta disponible para recibir un nuevo request a través de un release de recurso y el dispenser puede comunicarse con el Contenedor a traves de monitores.
+
+La comunicacion de los Contenedores con los Dispenser se realiza a través de 2 monitores. Uno que hace request y otro que hace response
+
+```
+Dispenser ---[request resourse]-->Contenedor
+    |                                |
+    |<----- [response resourse] ---- |   
+
+```
+
+Luego de recibir el recurso, el dispenser simula "servir" el ingrediente.
 
 Otra cosa que dificultó la comunicacion entre los dispensers y la maquina es cuando esta ya no tiene mas pedidos. Es por eso que se creo OrderManager, que lo que hace es manejar un estado en que se encuentran los pedidos. Con esta implementacion, los dispensers saben cuando apagarse y cuando avisar a los contenedores que ya no hay mas pedidos.
 
+El OrderManager, a su vez, tiene ciertos datos que luego al presentador de estadisticas le sirven.
+
 ### _Dificultades al modelar_
 
-Se noto, que dado que los contenedores deben comunicarse entre si por falta de suministro que no se recargue, se deben hacer un especie de request y response entre ellos. Por ejemplo, el contenedor de cafe molido, en caso de no tener cafe, debe enviarle una señal al contenedor de gramos de cafe para que este le proveea los gramos necesarios. Si este contenedor no tiene mas gramos para proveer, debe avisar al contedor de cafe molido, y este avisar al dispenser ya que no se podrá realizar mas cafe.
+Se noto, que dado que los contenedores deben comunicarse entre si por falta de suministro que no se recargue, se deben hacer un especie de request y response entre ellos.\
+Por ejemplo, el contenedor de cafe molido, en caso de no tener cafe, debe enviarle una señal al contenedor de gramos de cafe para que este le proveea los gramos necesarios. Si este contenedor no tiene mas gramos para proveer, debe avisar al contedor de cafe molido, y este avisar al dispenser ya que no se podrá realizar mas cafe.
 
 ### _Test de Aceptacion_
 
