@@ -1,4 +1,4 @@
-use std::sync::{Mutex, Condvar};
+use std::sync::{Condvar, Mutex};
 
 use super::{container::Container, resourse::Resourse};
 
@@ -60,41 +60,45 @@ impl CacaoContainer {
             cvar.notify_all();
         }
     }
-
 }
 
 impl Container for CacaoContainer {
     fn start(
         &mut self,
-        request_monitor: std::sync::Arc<(std::sync::Mutex<super::resourse::Resourse>, std::sync::Condvar)>,
-        response_monitor: std::sync::Arc<(std::sync::Mutex<super::resourse::Resourse>, std::sync::Condvar)>,
+        request_monitor: std::sync::Arc<(
+            std::sync::Mutex<super::resourse::Resourse>,
+            std::sync::Condvar,
+        )>,
+        response_monitor: std::sync::Arc<(
+            std::sync::Mutex<super::resourse::Resourse>,
+            std::sync::Condvar,
+        )>,
         bussy_sem: std::sync::Arc<std_semaphore::Semaphore>,
-    )
-    {
+    ) {
         loop {
-        let (lock, cvar) = &*request_monitor;
-        println!("[cacao container] - waiting for request");
-        if let Ok(res) = self.wait_dispenser(lock, cvar) {
-            println!("[cacao container] - attempting to consume amount {}", res);
+            let (lock, cvar) = &*request_monitor;
+            println!("[cacao container] - waiting for request");
+            if let Ok(res) = self.wait_dispenser(lock, cvar) {
+                println!("[cacao container] - attempting to consume amount {}", res);
 
-            if let Ok(amounte_consumed) = self.consume(res) {
-                let (res_lock, res_cvar) = &*response_monitor;
-                self.notify_dispenser(res_lock, res_cvar, Resourse::new(amounte_consumed));
-                if res == FINISH_FLAG {
-                    println!("[cacao container] - finishing ");
-                    break;
+                if let Ok(amounte_consumed) = self.consume(res) {
+                    let (res_lock, res_cvar) = &*response_monitor;
+                    self.notify_dispenser(res_lock, res_cvar, Resourse::new(amounte_consumed));
+                    if res == FINISH_FLAG {
+                        println!("[cacao container] - finishing ");
+                        break;
+                    }
+                    bussy_sem.release();
+                    println!("[cacao container] - released sem")
                 }
-                bussy_sem.release();
-                println!("[cacao container] - released sem")
             }
         }
     }
-}}
-
+}
 
 #[cfg(test)]
 mod cacao_container_test {
-    use std::sync::{Mutex, Arc, Condvar};
+    use std::sync::{Arc, Condvar, Mutex};
 
     use crate::containers::{cacao_container::CacaoContainer, resourse::Resourse};
 
@@ -130,10 +134,10 @@ mod cacao_container_test {
 
         let monitor = Arc::new((Mutex::new(resourse), Condvar::new()));
         let (lock, cvar) = &*monitor;
-        
-        let result =  cacao_container.wait_dispenser(lock, cvar).unwrap();
 
-        assert_eq!(result,10);
+        let result = cacao_container.wait_dispenser(lock, cvar).unwrap();
+
+        assert_eq!(result, 10);
     }
 
     #[test]
@@ -143,13 +147,11 @@ mod cacao_container_test {
         let resourse_res = Resourse::new(10);
         let monitor = Arc::new((Mutex::new(resourse_req), Condvar::new()));
         let (lock, cvar) = &*monitor;
-        
-        cacao_container.notify_dispenser(lock, cvar,resourse_res);
 
-        if let Ok(g) = cvar.wait_while(lock.lock().unwrap(), |s| s.is_not_ready()){
-            assert_eq!(g.get_amount(),10);
+        cacao_container.notify_dispenser(lock, cvar, resourse_res);
+
+        if let Ok(g) = cvar.wait_while(lock.lock().unwrap(), |s| s.is_not_ready()) {
+            assert_eq!(g.get_amount(), 10);
         };
     }
-
-
 }

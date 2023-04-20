@@ -8,8 +8,8 @@ use std_semaphore::Semaphore;
 
 use crate::{
     containers::{
-        coffee_container::CoffeContainer, container::Container, resourse::Resourse,
-        water_container::WaterContainer,
+        cacao_container::CacaoContainer, coffee_container::CoffeContainer, container::Container,
+        resourse::Resourse, water_container::WaterContainer,
     },
     dispensers::dispenser::Dispenser,
     helpers::{ingredients::Ingredients, order_manager::OrderManager, ticket::Ticket},
@@ -72,7 +72,12 @@ impl CoffeMachine {
                 Ingredients::CoffeGrain => {}
                 Ingredients::Milk => {}
                 Ingredients::Foam => {}
-                Ingredients::Cacao => {}
+                Ingredients::Cacao => {
+                    containers.push(thread::spawn(move || {
+                        let mut water_container = CacaoContainer::new();
+                        water_container.start(request_monitor, response_monitor, sem_clone);
+                    }));
+                }
                 Ingredients::Water => {
                     containers.push(thread::spawn(move || {
                         let mut water_container = WaterContainer::new();
@@ -124,9 +129,9 @@ impl CoffeMachine {
     //TODO: make reader
     fn read_ticket(&self, i: i32) -> Option<Ticket> {
         if i == 3 {
-            return Some(Ticket::new(-1, -1));
+            return Some(Ticket::new(-1, -1, -1));
         }
-        Some(Ticket::new(i * 2, i))
+        Some(Ticket::new(i * 2, i, i * 3))
     }
 
     fn kill_dispensers(&self, dispensers: Vec<JoinHandle<()>>) {
@@ -189,7 +194,7 @@ mod coffemachine_test {
     #[test]
     fn it_should_signal_coffe_dispenser() {
         let coffemachine: CoffeMachine = CoffeMachine::new();
-        let new_ticket = Ticket::new(10, 10);
+        let new_ticket = Ticket::new(10, 10, 10);
         let q = OrderManager::new();
         let monitor = Arc::new((Mutex::new(q), Condvar::new()));
         let (order_lock, cvar) = &*monitor;
@@ -216,6 +221,4 @@ mod coffemachine_test {
         let dispensers = coffemachine.init_dispensers(monitor);
         assert_eq!(dispensers.len(), DISPENSERS as usize)
     }
-
-    
 }

@@ -1,16 +1,20 @@
+const INGREDIENTS: i32 = 3;
+
 #[derive(Debug, Clone, Copy)]
 pub struct Ticket {
     coffe_amount: i32,
     water_amount: i32,
+    cacao_amount: i32,
     not_ready: bool,
 }
 
 impl Ticket {
-    pub fn new(coffe_amount: i32, water_amount: i32) -> Self {
+    pub fn new(coffe_amount: i32, water_amount: i32, cacao_amount: i32) -> Self {
         let not_ready = true;
         Self {
             coffe_amount,
             water_amount,
+            cacao_amount,
             not_ready,
         }
     }
@@ -35,7 +39,16 @@ impl Ticket {
         self.water_amount
     }
 
+    pub fn get_cacao_amount(&self) -> i32 {
+        self.cacao_amount
+    }
+
     pub fn last(&self) -> bool {
-        self.coffe_amount == -1 && self.water_amount == -1
+        let mut res = 0;
+        res += self.cacao_amount;
+        res += self.coffe_amount;
+        res += self.water_amount;
+
+        res == -INGREDIENTS
     }
 }

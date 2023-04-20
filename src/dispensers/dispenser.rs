@@ -62,9 +62,7 @@ impl Dispenser {
 
                         if let Some(monitor) = res_monitors.get(&ingredient) {
                             let (res_lock, res_cvar) = monitor.as_ref();
-                            if let Ok(coffee_delivered) =
-                                self.wait_coffe_container(res_lock, res_cvar)
-                            {
+                            if let Ok(coffee_delivered) = self.wait_container(res_lock, res_cvar) {
                                 if coffee_delivered == FINISH_FLAG {
                                     status = FINISH_FLAG;
                                 } else if self.dispense(coffee_delivered).is_err() {
@@ -79,7 +77,39 @@ impl Dispenser {
                 Ingredients::CoffeGrain => todo!(),
                 Ingredients::Milk => println!("[dispenser {}] no milk", self.id),
                 Ingredients::Foam => println!("[dispenser {}] no foam", self.id),
-                Ingredients::Cacao => println!("[dispenser {}] no cacao", self.id),
+                Ingredients::Cacao => {
+                    let resourse = Resourse::new(order.get_cacao_amount());
+
+                    if let Some(sem) = containers_sem.get(&ingredient) {
+                        sem.acquire();
+                        println!("[dispenser {}] has access ", self.id);
+
+                        if let Some(monitor) = req_monitors.get(&ingredient) {
+                            let (lock_req, cvar_req) = monitor.as_ref();
+                            println!(
+                                "[dispenser {}] - send amount of {} cacao units to cacao container",
+                                self.id,
+                                resourse.get_amount()
+                            );
+                            if self.notify_container(lock_req, cvar_req, resourse).is_err() {
+                                println!("[dispenser {}] fail requesting resourse", self.id)
+                            }
+                        }
+
+                        if let Some(monitor) = res_monitors.get(&ingredient) {
+                            let (res_lock, res_cvar) = monitor.as_ref();
+                            if let Ok(cacao_delivered) = self.wait_container(res_lock, res_cvar) {
+                                if cacao_delivered == FINISH_FLAG {
+                                    status = FINISH_FLAG;
+                                } else if self.dispense(cacao_delivered).is_err() {
+                                    println!("[dispenser {}] fail dispensign cacao", self.id)
+                                } else {
+                                    status = cacao_delivered;
+                                }
+                            }
+                        }
+                    }
+                }
                 Ingredients::Water => {
                     let resourse = Resourse::new(order.get_water_amount());
 
@@ -101,13 +131,11 @@ impl Dispenser {
 
                         if let Some(monitor) = res_monitors.get(&ingredient) {
                             let (res_lock, res_cvar) = monitor.as_ref();
-                            if let Ok(water_delivered) =
-                                self.wait_coffe_container(res_lock, res_cvar)
-                            {
+                            if let Ok(water_delivered) = self.wait_container(res_lock, res_cvar) {
                                 if water_delivered == FINISH_FLAG {
                                     status = FINISH_FLAG;
                                 } else if self.dispense(water_delivered).is_err() {
-                                    println!("[dispenser {}] fail dispensign coffee", self.id)
+                                    println!("[dispenser {}] fail dispensign water", self.id)
                                 } else {
                                     status = water_delivered;
                                 }
@@ -164,7 +192,7 @@ impl Dispenser {
     }
 
     // waits for coffee container to respond
-    fn wait_coffe_container(&self, lock: &Mutex<Resourse>, cvar: &Condvar) -> Result<i32, String> {
+    fn wait_container(&self, lock: &Mutex<Resourse>, cvar: &Condvar) -> Result<i32, String> {
         if let Ok(guard) = lock.lock() {
             if let Ok(mut resourse) = cvar.wait_while(guard, |status| status.is_not_ready()) {
                 let resourse_amount = resourse.get_amount();
@@ -232,7 +260,7 @@ mod dispenser_test {
     fn it_should_return_10_when_wait_new_ticket_is_ready() {
         let dispenser = Dispenser::new(0);
         let mut q = OrderManager::new();
-        q.add(Ticket::new(10, 10));
+        q.add(Ticket::new(10, 10, 10));
 
         let ticket = Arc::new((Mutex::new(q), Condvar::new()));
         let (order_lock, cvar) = &*ticket;
