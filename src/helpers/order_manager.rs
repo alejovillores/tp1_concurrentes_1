@@ -57,17 +57,13 @@ impl OrderManager {
                 }
 
                 self.orders_extracted += 1;
-                println!("[order manager] - status: {:?}", self.status);
-
                 Some(t)
             }
             None => {
-                println!("[order manager] - status: {:?}", self.status);
                 match self.status {
                     StatusFlag::NoMoreOrders => {}
                     _ => self.status = StatusFlag::Empty,
                 }
-                println!("[order manager] - ACA CAMBIA status: {:?}", self.status);
                 None
             }
         }
