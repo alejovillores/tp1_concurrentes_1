@@ -1,21 +1,27 @@
+use super::ingredients::Ingredients;
+
 const INGREDIENTS: i32 = 3;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Order {
-    coffe_amount: i32,
+    coffee_amount: i32,
     water_amount: i32,
     cacao_amount: i32,
     not_ready: bool,
+    last_order: bool,
 }
 
 impl Order {
-    pub fn new(coffe_amount: i32, water_amount: i32, cacao_amount: i32) -> Self {
+    pub fn new(coffee_amount: i32, water_amount: i32, cacao_amount: i32) -> Self {
         let not_ready = true;
+        let last_order = false;
+
         Self {
-            coffe_amount,
+            coffee_amount,
             water_amount,
             cacao_amount,
             not_ready,
+            last_order,
         }
     }
 
@@ -31,24 +37,20 @@ impl Order {
         self.not_ready
     }
 
-    pub fn get_coffe_amount(&self) -> i32 {
-        self.coffe_amount
+    pub fn last(&mut self) {
+        self.last_order = true;
     }
 
-    pub fn get_water_amount(&self) -> i32 {
-        self.water_amount
+    pub fn is_last(&self) -> bool {
+        self.last_order
     }
 
-    pub fn get_cacao_amount(&self) -> i32 {
-        self.cacao_amount
-    }
-
-    pub fn last(&self) -> bool {
-        let mut res = 0;
-        res += self.cacao_amount;
-        res += self.coffe_amount;
-        res += self.water_amount;
-
-        res == -INGREDIENTS
+    pub fn get_ingredient_amount(&self, i: Ingredients) -> i32 {
+        match i {
+            Ingredients::Coffee => self.coffee_amount,
+            Ingredients::Cacao => self.cacao_amount,
+            Ingredients::Water => self.water_amount,
+            _ => 0,
+        }
     }
 }

@@ -1,6 +1,7 @@
 use super::order::Order;
 use std::collections::VecDeque;
 
+#[derive(Debug)]
 enum StatusFlag {
     LastOrder,
     NoMoreOrders,
@@ -28,9 +29,12 @@ impl OrderManager {
     }
 
     pub fn add(&mut self, ticket: Order) {
-        if ticket.last() {
+        if ticket.is_last() {
+            println!("[order manager] - last packet in qeue");
             self.status = StatusFlag::LastOrder;
+            println!("[order manager] - status: {:?}", self.status);
         } else {
+            println!("[order manager] - new packet in qeue");
             self.status = StatusFlag::NotEmpty;
         }
         self.orders.push_back(ticket)
@@ -53,10 +57,17 @@ impl OrderManager {
                 }
 
                 self.orders_extracted += 1;
+                println!("[order manager] - status: {:?}", self.status);
+
                 Some(t)
             }
             None => {
-                self.status = StatusFlag::Empty;
+                println!("[order manager] - status: {:?}", self.status);
+                match self.status {
+                    StatusFlag::NoMoreOrders => {}
+                    _ => self.status = StatusFlag::Empty,
+                }
+                println!("[order manager] - ACA CAMBIA status: {:?}", self.status);
                 None
             }
         }
@@ -67,6 +78,7 @@ impl OrderManager {
     }
 
     pub fn no_more_orders(&self) -> bool {
+        println!("[order manager] - status: {:?}", self.status);
         matches!(self.status, StatusFlag::NoMoreOrders)
     }
 

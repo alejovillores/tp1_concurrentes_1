@@ -13,7 +13,11 @@ use crate::{
     },
     dispensers::dispenser::Dispenser,
     helpers::{
-        ingredients::Ingredients, order::Order, order_manager::OrderManager, resourse::Resourse,
+        ingredients::Ingredients,
+        order::Order,
+        order_manager::OrderManager,
+        order_reader::{self, OrderReader},
+        resourse::Resourse,
         stats_presenter::StatsPresenter,
     },
 };
@@ -27,6 +31,8 @@ const INGREDIENTS: [Ingredients; 5] = [
     Ingredients::Foam,
     Ingredients::Cacao,
 ];
+const PATH: &str = "res/orders.test1.json";
+const END: i32 = -1;
 
 pub struct CoffeMachine {
     req_monitors: HashMap<Ingredients, Arc<(Mutex<Resourse>, Condvar)>>,
@@ -122,6 +128,7 @@ impl CoffeMachine {
             new_ticket.ready_to_read();
             ticket_vec.add(new_ticket);
             cvar.notify_all();
+            println!("[coffee machine] - send new order");
             return Ok(());
         };
         Err("[error] - ticket monitor failed".to_string())
@@ -138,18 +145,39 @@ impl CoffeMachine {
         }));
     }
 
-    //TODO: make reader
-    fn read_ticket(&self, i: i32) -> Option<Order> {
-        if i == 3 {
-            return Some(Order::new(-1, -1, -1));
+    fn read_ticket(&self, reader: &mut OrderReader) -> Option<Order> {
+        match reader.get_order() {
+            Some(o) => Some(o),
+            None => None,
         }
-        Some(Order::new(i * 2, i, i * 3))
     }
 
     fn kill_dispensers(&self, dispensers: Vec<JoinHandle<()>>) {
         for d in dispensers {
             if d.join().is_ok() {
-                println!("[global]  - dispensers killed")
+                println!("[global]  - dispenser killed")
+            };
+        }
+    }
+
+    fn kill_containers(&self, containers: Vec<JoinHandle<()>>) {
+        for i in INGREDIENTS.iter().copied() {
+            if let Some(sem) = self.bussy_sem.get(&i) {
+                sem.acquire();
+                if let Some(monitor) = self.req_monitors.get(&i) {
+                    let (lock_req, cvar) = monitor.as_ref();
+                    if let Ok(mut old_resourse) = lock_req.lock() {
+                        *old_resourse = Resourse::new(END);
+                        old_resourse.ready_to_read();
+                        cvar.notify_all();
+                    };
+                }
+            }
+        }
+
+        for d in containers {
+            if d.join().is_ok() {
+                println!("[global]  - container killed")
             };
         }
     }
@@ -158,28 +186,31 @@ impl CoffeMachine {
         let order_manager = Arc::new((Mutex::new(OrderManager::new()), Condvar::new()));
         let _containers = self.init_containers();
         let mut dispensers = self.init_dispensers(order_manager.clone());
+        let mut order_reader = OrderReader::new(PATH.to_string());
+        order_reader
+            .read_json()
+            .expect("[cofee machine] - Fail reading json file");
         self.init_stat_presenter(&mut dispensers, order_manager.clone());
-        let (order_lock, cvar) = &*order_manager;
 
-        for i in 1..4 {
-            match self.read_ticket(i) {
+        let (order_lock, cvar) = &*order_manager;
+        loop {
+            match self.read_ticket(&mut order_reader) {
                 Some(ticket) => match self.notify_new_ticket(order_lock, cvar, ticket) {
-                    Ok(_) => {
-                        println!("[coffe machine] - Coffe Machine send {} new ticket", i)
-                    }
+                    Ok(_) => {}
                     Err(e) => {
                         println!("{:?}", e);
                         break;
                     }
                 },
                 None => {
-                    println!("[coffe machine] - Coffe Machine finished.");
+                    println!("[coffee machine] - no more orders.");
                     break;
                 }
             }
         }
-        println!("[coffe machine] - Coffe Machine finished.");
+        println!("[coffe machine] - waiting for dispenseres be killed .");
         self.kill_dispensers(dispensers);
+        self.kill_containers(_containers);
     }
 }
 

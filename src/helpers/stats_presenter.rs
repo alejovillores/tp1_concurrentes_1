@@ -27,7 +27,6 @@ impl StatsPresenter {
                 println!("\tCOFFE ORDERS MADE:    {}", orders_made);
                 println!("\tCOFFE ORDERS IN QEUE: {}", orders_unmade);
                 println!("\t------------------------------------\n");
-
                 if order_manager.no_more_orders() {
                     break;
                 }

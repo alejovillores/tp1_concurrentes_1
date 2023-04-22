@@ -45,7 +45,7 @@ impl Dispenser {
                 Ingredients::Foam => println!("[dispenser {}] no foam", self.id),
                 Ingredients::CoffeGrain => {}
                 _ => {
-                    let resourse = Resourse::new(order.get_cacao_amount());
+                    let resourse = Resourse::new(order.get_ingredient_amount(ingredient));
 
                     if let Some(sem) = containers_sem.get(&ingredient) {
                         sem.acquire();
@@ -174,17 +174,14 @@ impl Dispenser {
         loop {
             let (order_lock, cvar) = &*order_monitor;
             if let Some(order) = self.wait_new_ticket(order_lock, cvar) {
-                let order_status = self.process_order(
+                let _ = self.process_order(
                     containers_req_monitors,
                     containers_res_monitors,
                     order,
                     containers_sem,
                 );
 
-                if order_status == FINISH_FLAG {
-                    println!("[dispenser {} ] - killing dispenser ", self.id);
-                    break;
-                }
+                println!("[dispenser {} ] - dispenser finished order ", self.id);
             } else {
                 println!("[dispenser {} ] - killing dispenser ", self.id);
                 break;
@@ -199,7 +196,7 @@ mod dispenser_test {
 
     use crate::{
         dispensers::dispenser::Dispenser,
-        helpers::resourse::Resourse,
+        helpers::{ingredients::Ingredients, resourse::Resourse},
         helpers::{order::Order, order_manager::OrderManager},
     };
 
@@ -222,7 +219,9 @@ mod dispenser_test {
         let (order_lock, cvar) = &*ticket;
 
         match dispenser.wait_new_ticket(order_lock, cvar) {
-            Some(new_ticket) => assert_eq!(new_ticket.get_coffe_amount(), 10),
+            Some(new_ticket) => {
+                assert_eq!(new_ticket.get_ingredient_amount(Ingredients::Coffee), 10)
+            }
             None => assert!(false),
         }
     }

@@ -5,6 +5,7 @@ use std::io::BufReader;
 
 use super::order::Order;
 use serde::{Deserialize, Serialize};
+const LAST: i32 = -1;
 
 #[derive(Deserialize, Serialize, Debug)]
 struct OrderJSON {
@@ -25,11 +26,23 @@ impl OrderJSON {
     pub fn to_order(&self) -> Order {
         Order::new(self.coffee_amount, self.water_amount, self.cacao_amount)
     }
+
+    pub fn last() -> Self {
+        let coffee_amount = LAST;
+        let water_amount = LAST;
+        let cacao_amount = LAST;
+
+        Self {
+            coffee_amount,
+            water_amount,
+            cacao_amount,
+        }
+    }
 }
 
 pub struct OrderReader {
     path: String,
-    orders: VecDeque<OrderJSON>
+    orders: VecDeque<OrderJSON>,
 }
 
 impl OrderReader {
@@ -60,33 +73,34 @@ impl OrderReader {
             Err(_) => Err("could not convert json to object".to_string()),
         }
     }
-    
+
     #[allow(unused_must_use)]
-    pub fn read_json(&mut self) -> Result<(),String>{
+    pub fn read_json(&mut self) -> Result<(), String> {
         match self.read_file() {
             Ok(s) => {
-                if let Ok(o) = self.make_orders(s){
+                if let Ok(mut o) = self.make_orders(s) {
                     self.orders = o;
                     Ok(())
-                }else {
+                } else {
                     Err("could not make orders".to_string())
                 }
             }
-            Err(e)=> Err(e.to_string()),
+            Err(e) => Err(e.to_string()),
         }
     }
 
-
     pub fn get_order(&mut self) -> Option<Order> {
-        match self.orders.pop_front(){
+        match self.orders.pop_front() {
             Some(o) => {
-                let order = o.to_order();
+                let mut order = o.to_order();
+                if self.orders.is_empty() {
+                    order.last();
+                }
                 Some(order)
-            },
+            }
             None => None,
         }
     }
-
 }
 
 #[cfg(test)]
@@ -105,26 +119,25 @@ mod order_reader_test {
     }
 
     #[test]
-    fn it_should_read_order_with_10_coffee_amount() {
+    fn it_should_read_order_with_5_coffee_amount() {
         let o_reader = OrderReader::new("res/orders.test1.json".to_owned());
 
         let res = o_reader.read_file().unwrap();
         let result = o_reader.make_orders(res).unwrap();
 
-        assert_eq!(result.get(0).unwrap().coffee_amount, 10)
+        assert_eq!(result.get(0).unwrap().coffee_amount, 5)
     }
 
     #[test]
-    fn it_should_read_order_with_20_water_amount() {
+    fn it_should_read_order_with_8_water_amount() {
         let o_reader = OrderReader::new("res/orders.test1.json".to_owned());
 
         let res = o_reader.read_file().unwrap();
         let result = o_reader.make_orders(res).unwrap();
 
-        assert_eq!(result.get(0).unwrap().water_amount, 20)
+        assert_eq!(result.get(0).unwrap().water_amount, 8)
     }
 
-    
     #[test]
     fn it_should_read_4_orders() {
         let o_reader = OrderReader::new("res/orders.test2.json".to_owned());
@@ -139,7 +152,7 @@ mod order_reader_test {
     fn it_should_init_orders() {
         let mut o_reader = OrderReader::new("res/orders.test2.json".to_owned());
         o_reader.read_json().unwrap();
-        
+
         assert_eq!(o_reader.orders.len(), 4)
     }
 
@@ -148,9 +161,24 @@ mod order_reader_test {
         let mut o_reader = OrderReader::new("res/orders.test2.json".to_owned());
         o_reader.read_json().unwrap();
         let order = o_reader.get_order().unwrap();
-        
+
         assert!(order.is_not_ready())
     }
 
+    #[test]
+    fn it_should_not_have_last_order_first() {
+        let mut o_reader = OrderReader::new("res/orders.test2.json".to_owned());
+        o_reader.read_json().unwrap();
+        let order = o_reader.get_order().unwrap();
 
+        assert!(!order.is_last())
+    }
+
+    #[test]
+    fn it_should_have_last_order() {
+        let mut o_reader = OrderReader::new("res/orders.test1.json".to_owned());
+        o_reader.read_json().unwrap();
+        let order = o_reader.get_order().unwrap();
+        assert!(order.is_last())
+    }
 }

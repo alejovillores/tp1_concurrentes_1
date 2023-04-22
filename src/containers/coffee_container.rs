@@ -62,7 +62,6 @@ impl CoffeContainer {
         }
 
         if amount.is_negative() {
-            println!("[coffee container] - finish flag");
             self.notify_end_message(refill_req_monitor);
             return Ok(FINISH_FLAG);
         } else {
