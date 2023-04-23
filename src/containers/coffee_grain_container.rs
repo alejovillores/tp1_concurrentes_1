@@ -29,11 +29,12 @@ impl CoffeeGrainContainer {
         };
 
         if self.capacity == 0 {
-            println!("[coffee grain container] - no more coffee grain");
+            println!("[coffee grain container] - no more coffee grain sending FINISHING FLAG");
             return EMPTY;
         };
 
         if amount.is_negative() {
+            println!("[coffee grain container] - FINISHING FLAG");
             return EMPTY;
         }
 
@@ -50,8 +51,9 @@ impl CoffeeGrainContainer {
         if let Ok(guard) = lock.lock() {
             if let Ok(mut resourse) = cvar.wait_while(guard, |status| status.is_not_ready()) {
                 let coffee_amount = resourse.get_amount();
+
                 println!(
-                    "[coffee grain container] - coffe container asking for amount {}",
+                    "[coffee grain container] - coffee container asking for amount {}",
                     coffee_amount
                 );
                 resourse.read();

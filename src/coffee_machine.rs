@@ -18,7 +18,6 @@ use crate::{
     },
 };
 
-const DISPENSERS: i32 = 2;
 const TIME: u64 = 5;
 const INGREDIENTS: [Ingredients; 5] = [
     Ingredients::Coffee,
@@ -27,22 +26,25 @@ const INGREDIENTS: [Ingredients; 5] = [
     Ingredients::Foam,
     Ingredients::Cacao,
 ];
-const PATH: &str = "res/orders.test2.json";
 const END: i32 = -1;
 
 pub struct CoffeMachine {
+    path: String,
+    n_dispensers: i32,
     req_monitors: HashMap<Ingredients, Arc<(Mutex<Resourse>, Condvar)>>,
     res_monitors: HashMap<Ingredients, Arc<(Mutex<Resourse>, Condvar)>>,
     bussy_sem: HashMap<Ingredients, Arc<Semaphore>>,
 }
 
 impl CoffeMachine {
-    pub fn new() -> Self {
+    pub fn new(path: String, n_dispensers: i32) -> Self {
         let req_monitors: HashMap<Ingredients, Arc<(Mutex<Resourse>, Condvar)>> = HashMap::new();
         let res_monitors: HashMap<Ingredients, Arc<(Mutex<Resourse>, Condvar)>> = HashMap::new();
         let bussy_sem: HashMap<Ingredients, Arc<Semaphore>> = HashMap::new();
 
         Self {
+            path,
+            n_dispensers,
             req_monitors,
             res_monitors,
             bussy_sem,
@@ -97,9 +99,9 @@ impl CoffeMachine {
         &self,
         order_lock: Arc<(Mutex<OrderManager>, Condvar)>,
     ) -> Vec<JoinHandle<()>> {
-        let mut dispensers = Vec::with_capacity(DISPENSERS as usize);
+        let mut dispensers = Vec::with_capacity(self.n_dispensers as usize);
 
-        for i in 0..DISPENSERS {
+        for i in 0..self.n_dispensers {
             let req_monitors = self.req_monitors.clone();
             let res_monitors = self.res_monitors.clone();
             let order_monitor = order_lock.clone();
@@ -179,7 +181,7 @@ impl CoffeMachine {
         let order_manager = Arc::new((Mutex::new(OrderManager::new()), Condvar::new()));
         let _containers = self.init_containers();
         let mut dispensers = self.init_dispensers(order_manager.clone());
-        let mut order_reader = OrderReader::new(PATH.to_string());
+        let mut order_reader = OrderReader::new(self.path.clone());
         order_reader
             .read_json()
             .expect("[cofee machine] - Fail reading json file");
@@ -207,24 +209,19 @@ impl CoffeMachine {
     }
 }
 
-impl Default for CoffeMachine {
-    fn default() -> Self {
-        Self::new()
-    }
-}
 
 #[cfg(test)]
 mod coffemachine_test {
     use std::sync::{Arc, Condvar, Mutex};
 
     use crate::{
-        coffee_machine::{CoffeMachine, DISPENSERS},
+        coffee_machine::CoffeMachine,
         helpers::{order::Order, order_manager::OrderManager},
     };
 
     #[test]
     fn it_should_signal_coffe_dispenser() {
-        let coffemachine: CoffeMachine = CoffeMachine::new();
+        let coffemachine: CoffeMachine = CoffeMachine::new("text".to_string(), 2);
         let new_ticket = Order::new(10, 10, 10);
         let q = OrderManager::new();
         let monitor = Arc::new((Mutex::new(q), Condvar::new()));
@@ -245,11 +242,11 @@ mod coffemachine_test {
 
     #[test]
     fn it_should_initilize_dispensers() {
-        let coffemachine: CoffeMachine = CoffeMachine::new();
+        let coffemachine: CoffeMachine = CoffeMachine::new("text".to_string(), 2);
         let q = OrderManager::new();
         let monitor = Arc::new((Mutex::new(q), Condvar::new()));
 
         let dispensers = coffemachine.init_dispensers(monitor);
-        assert_eq!(dispensers.len(), DISPENSERS as usize)
+        assert_eq!(dispensers.len(), 2)
     }
 }

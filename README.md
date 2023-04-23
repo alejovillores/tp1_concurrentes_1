@@ -71,15 +71,22 @@ El OrderManager, a su vez, tiene ciertos datos que luego al presentador de estad
 Se noto, que dado que los contenedores deben comunicarse entre si por falta de suministro que no se recargue, se deben hacer un especie de request y response entre ellos.\
 Por ejemplo, el contenedor de cafe molido, en caso de no tener cafe, debe enviarle una señal al contenedor de gramos de cafe para que este le proveea los gramos necesarios. Si este contenedor no tiene mas gramos para proveer, debe avisar al contedor de cafe molido, y este avisar al dispenser ya que no se podrá realizar mas cafe.
 
+### _Ejecucion_
+
+`cargo run <filename.json> <dispensers numbers>`
+
 ### _Test de Aceptacion_
 
-> TODO: preguntar como hacerlos
+Al ejecutar los casos de uso, lo que se hace es ejecutarse en segundo plano con ciertos parametros y se espera a que todos terminen
+
+`./test-cases.sh`
 
 ### _Test Unitarios_
 
-Para correr los test unitarios se debe ejecutar
+Para correr los test unitarios se debe ejecutar el siguiente comando
 
 `cargo test`
+
 
 ## _Extra_
 
