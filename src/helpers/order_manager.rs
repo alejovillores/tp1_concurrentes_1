@@ -3,7 +3,6 @@ use std::collections::VecDeque;
 
 #[derive(Debug)]
 enum StatusFlag {
-    LastOrder,
     NoMoreOrders,
     NotEmpty,
     Empty,
@@ -29,33 +28,20 @@ impl OrderManager {
     }
 
     pub fn add(&mut self, ticket: Order) {
-        if ticket.is_last() {
-            println!("[order manager] - last packet in qeue");
-            self.status = StatusFlag::LastOrder;
-            println!("[order manager] - status: {:?}", self.status);
-        } else {
-            println!("[order manager] - new packet in qeue");
-            self.status = StatusFlag::NotEmpty;
-        }
+        self.status = StatusFlag::NotEmpty;
         self.orders.push_back(ticket)
     }
 
     pub fn extract(&mut self) -> Option<Order> {
         match self.orders.pop_front() {
             Some(t) => {
-                match self.status {
-                    StatusFlag::LastOrder => {
-                        self.status = StatusFlag::NoMoreOrders;
-                    }
-                    _ => {
-                        if self.orders.is_empty() {
-                            self.status = StatusFlag::Empty;
-                        } else {
-                            self.status = StatusFlag::NotEmpty;
-                        }
-                    }
+                if t.is_last() {
+                    self.status = StatusFlag::NoMoreOrders;
+                } else if self.orders.is_empty() {
+                    self.status = StatusFlag::Empty;
+                } else {
+                    self.status = StatusFlag::NotEmpty;
                 }
-
                 self.orders_extracted += 1;
                 Some(t)
             }

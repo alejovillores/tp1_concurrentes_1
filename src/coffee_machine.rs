@@ -31,7 +31,7 @@ const INGREDIENTS: [Ingredients; 5] = [
     Ingredients::Foam,
     Ingredients::Cacao,
 ];
-const PATH: &str = "res/orders.test1.json";
+const PATH: &str = "res/orders.test2.json";
 const END: i32 = -1;
 
 pub struct CoffeMachine {

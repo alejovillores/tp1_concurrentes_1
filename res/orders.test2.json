@@ -1,22 +1,22 @@
 [
     {
-        "coffee_amount":10,
-        "water_amount": 10,
+        "coffee_amount":5,
+        "water_amount": 7,
         "cacao_amount": 0
     },
     {
         "coffee_amount":5,
         "water_amount": 10,
-        "cacao_amount": 5
-    },
-    {
-        "coffee_amount":5,
-        "water_amount": 25,
         "cacao_amount": 2
     },
     {
-        "coffee_amount":20,
-        "water_amount": 30,
+        "coffee_amount":7,
+        "water_amount": 5,
+        "cacao_amount": 1
+    },
+    {
+        "coffee_amount":10,
+        "water_amount": 0,
         "cacao_amount": 0
     }
 ]

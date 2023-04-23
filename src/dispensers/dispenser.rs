@@ -49,7 +49,10 @@ impl Dispenser {
 
                     if let Some(sem) = containers_sem.get(&ingredient) {
                         sem.acquire();
-                        println!("[dispenser {}] has access ", self.id);
+                        println!(
+                            "[dispenser {}] has access to {:?} container",
+                            self.id, ingredient
+                        );
                         if let Ok(res) = self.process_ingredient(
                             req_monitors,
                             res_monitors,
