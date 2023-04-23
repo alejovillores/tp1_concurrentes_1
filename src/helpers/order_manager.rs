@@ -14,6 +14,7 @@ pub struct OrderManager {
     orders_extracted: i32,
 }
 
+#[allow(clippy::new_without_default)]
 impl OrderManager {
     pub fn new() -> Self {
         let status = StatusFlag::Empty;

@@ -1,7 +1,5 @@
 use super::ingredients::Ingredients;
 
-const INGREDIENTS: i32 = 3;
-
 #[derive(Debug, Clone, Copy)]
 pub struct Order {
     coffee_amount: i32,

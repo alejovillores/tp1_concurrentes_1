@@ -13,6 +13,7 @@ pub struct CoffeeGrainContainer {
     capacity: i32,
 }
 
+#[allow(clippy::new_without_default)]
 impl CoffeeGrainContainer {
     pub fn new() -> Self {
         let capacity = CAPACITY;

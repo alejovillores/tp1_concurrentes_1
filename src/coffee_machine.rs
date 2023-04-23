@@ -13,12 +13,8 @@ use crate::{
     },
     dispensers::dispenser::Dispenser,
     helpers::{
-        ingredients::Ingredients,
-        order::Order,
-        order_manager::OrderManager,
-        order_reader::{self, OrderReader},
-        resourse::Resourse,
-        stats_presenter::StatsPresenter,
+        ingredients::Ingredients, order::Order, order_manager::OrderManager,
+        order_reader::OrderReader, resourse::Resourse, stats_presenter::StatsPresenter,
     },
 };
 
@@ -146,10 +142,7 @@ impl CoffeMachine {
     }
 
     fn read_ticket(&self, reader: &mut OrderReader) -> Option<Order> {
-        match reader.get_order() {
-            Some(o) => Some(o),
-            None => None,
-        }
+        reader.get_order()
     }
 
     fn kill_dispensers(&self, dispensers: Vec<JoinHandle<()>>) {
@@ -161,10 +154,10 @@ impl CoffeMachine {
     }
 
     fn kill_containers(&self, containers: Vec<JoinHandle<()>>) {
-        for i in INGREDIENTS.iter().copied() {
-            if let Some(sem) = self.bussy_sem.get(&i) {
+        for i in INGREDIENTS.iter() {
+            if let Some(sem) = self.bussy_sem.get(i) {
                 sem.acquire();
-                if let Some(monitor) = self.req_monitors.get(&i) {
+                if let Some(monitor) = self.req_monitors.get(i) {
                     let (lock_req, cvar) = monitor.as_ref();
                     if let Ok(mut old_resourse) = lock_req.lock() {
                         *old_resourse = Resourse::new(END);

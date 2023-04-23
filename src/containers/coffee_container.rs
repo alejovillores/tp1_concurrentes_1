@@ -14,6 +14,7 @@ pub struct CoffeContainer {
     capacity: i32,
 }
 
+#[allow(clippy::new_without_default)]
 impl CoffeContainer {
     pub fn new() -> Self {
         let capacity = 0;
@@ -63,7 +64,7 @@ impl CoffeContainer {
 
         if amount.is_negative() {
             self.notify_end_message(refill_req_monitor);
-            return Ok(FINISH_FLAG);
+            Ok(FINISH_FLAG)
         } else {
             let refill_amount = CAPACITY - self.capacity;
             self.refill(
@@ -197,11 +198,8 @@ impl Container for CoffeContainer {
         let refill_req_monitor = Arc::new((Mutex::new(Resourse::new(0)), Condvar::new()));
         let refill_res_monitor = Arc::new((Mutex::new(Resourse::new(0)), Condvar::new()));
         let sem = Arc::new(Semaphore::new(0));
-        let grain_container = self.init_container(
-            refill_req_monitor.clone(),
-            refill_res_monitor.clone(),
-            sem.clone(),
-        );
+        let grain_container =
+            self.init_container(refill_req_monitor.clone(), refill_res_monitor.clone(), sem);
 
         loop {
             let (lock, cvar) = &*dispenser_req_monitor;

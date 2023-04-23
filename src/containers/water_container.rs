@@ -15,6 +15,7 @@ pub struct WaterContainer {
     capacity: i32,
 }
 
+#[allow(clippy::new_without_default)]
 impl WaterContainer {
     pub fn new() -> Self {
         let capacity = 0;
@@ -35,7 +36,7 @@ impl WaterContainer {
                 refill_amount
             );
             self.refill(refill_amount);
-            return self.consume(amount);
+            self.consume(amount)
         } else if (self.capacity >= amount) && (amount.is_positive()) {
             println!("[water container] - consuming {} units of water", amount);
             self.capacity -= amount;

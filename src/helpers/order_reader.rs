@@ -5,7 +5,6 @@ use std::io::BufReader;
 
 use super::order::Order;
 use serde::{Deserialize, Serialize};
-const LAST: i32 = -1;
 
 #[derive(Deserialize, Serialize, Debug)]
 struct OrderJSON {
@@ -15,28 +14,8 @@ struct OrderJSON {
 }
 
 impl OrderJSON {
-    pub fn new(coffee_amount: i32, water_amount: i32, cacao_amount: i32) -> Self {
-        Self {
-            coffee_amount,
-            water_amount,
-            cacao_amount,
-        }
-    }
-
     pub fn to_order(&self) -> Order {
         Order::new(self.coffee_amount, self.water_amount, self.cacao_amount)
-    }
-
-    pub fn last() -> Self {
-        let coffee_amount = LAST;
-        let water_amount = LAST;
-        let cacao_amount = LAST;
-
-        Self {
-            coffee_amount,
-            water_amount,
-            cacao_amount,
-        }
     }
 }
 
@@ -78,14 +57,14 @@ impl OrderReader {
     pub fn read_json(&mut self) -> Result<(), String> {
         match self.read_file() {
             Ok(s) => {
-                if let Ok(mut o) = self.make_orders(s) {
+                if let Ok(o) = self.make_orders(s) {
                     self.orders = o;
                     Ok(())
                 } else {
                     Err("could not make orders".to_string())
                 }
             }
-            Err(e) => Err(e.to_string()),
+            Err(e) => Err(e),
         }
     }
 

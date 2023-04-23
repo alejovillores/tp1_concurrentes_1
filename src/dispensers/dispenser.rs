@@ -104,7 +104,7 @@ impl Dispenser {
             return Err("[error] - dispenser resourse monitor failed".to_string());
         }
 
-        return Err("[error] - dispenser resourse no monitor found".to_string());
+        Err("[error] - dispenser resourse no monitor found".to_string())
     }
 
     // Simulate dispense time

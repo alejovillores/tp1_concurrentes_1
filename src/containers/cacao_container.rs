@@ -10,6 +10,7 @@ pub struct CacaoContainer {
     capacity: i32,
 }
 
+#[allow(clippy::new_without_default)]
 impl CacaoContainer {
     pub fn new() -> Self {
         let capacity = N;
@@ -19,9 +20,9 @@ impl CacaoContainer {
     fn consume(&mut self, amount: i32) -> Result<i32, String> {
         if (amount.is_positive()) && (amount <= self.capacity) {
             self.capacity -= amount;
-            return Ok(amount);
+            Ok(amount)
         } else {
-            return Ok(FINISH_FLAG);
+            Ok(FINISH_FLAG)
         }
     }
 
