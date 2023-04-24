@@ -2,6 +2,7 @@
     {
         "coffee_amount":5,
         "water_amount": 8,
-        "cacao_amount": 2
+        "cacao_amount": 2,
+        "milk_amount":3
     }
 ]

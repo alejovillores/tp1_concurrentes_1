@@ -11,6 +11,7 @@ pub struct MilkContainer {
     capacity: i32,
 }
 
+#[allow(clippy::new_without_default)]
 impl MilkContainer {
     pub fn new() -> Self {
         let capacity = CAPACITY;
@@ -121,35 +122,35 @@ mod milk_container_test {
 
     #[test]
     fn it_should_send_finish_flag_when_no_capacity() {
-        let mut cacao_container = MilkContainer::new();
+        let mut milk_container = MilkContainer::new();
         let amount = 1100;
-        let res = cacao_container.consume(amount).unwrap();
+        let res = milk_container.consume(amount).unwrap();
         assert_eq!(res, FINISH_FLAG)
     }
 
     #[test]
     fn it_should_wait_for_resourse_is_ready() {
-        let mut cacao_container: MilkContainer = MilkContainer::new();
+        let milk_container: MilkContainer = MilkContainer::new();
         let mut resourse = Resourse::new(10);
         resourse.ready_to_read();
 
         let monitor = Arc::new((Mutex::new(resourse), Condvar::new()));
         let (lock, cvar) = &*monitor;
 
-        let result = cacao_container.wait_dispenser(lock, cvar).unwrap();
+        let result = milk_container.wait_dispenser(lock, cvar).unwrap();
 
         assert_eq!(result, 10);
     }
 
     #[test]
     fn it_should_notify_for_resourse_is_ready() {
-        let mut cacao_container = MilkContainer::new();
+        let mut milk_container = MilkContainer::new();
         let resourse_req = Resourse::new(0);
         let resourse_res = Resourse::new(10);
         let monitor = Arc::new((Mutex::new(resourse_req), Condvar::new()));
         let (lock, cvar) = &*monitor;
 
-        cacao_container.notify_dispenser(lock, cvar, resourse_res);
+        milk_container.notify_dispenser(lock, cvar, resourse_res);
 
         if let Ok(g) = cvar.wait_while(lock.lock().unwrap(), |s| s.is_not_ready()) {
             assert_eq!(g.get_amount(), 10);

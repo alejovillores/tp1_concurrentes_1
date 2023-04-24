@@ -9,7 +9,7 @@ use std_semaphore::Semaphore;
 use crate::{
     containers::{
         cacao_container::CacaoContainer, coffee_container::CoffeContainer, container::Container,
-        water_container::WaterContainer,
+        milk_container::MilkContainer, water_container::WaterContainer,
     },
     dispensers::dispenser::Dispenser,
     helpers::{
@@ -75,7 +75,12 @@ impl CoffeMachine {
                     }));
                 }
                 Ingredients::CoffeGrain => {}
-                Ingredients::Milk => {}
+                Ingredients::Milk => {
+                    containers.push(thread::spawn(move || {
+                        let mut water_container: MilkContainer = MilkContainer::new();
+                        water_container.start(request_monitor, response_monitor, sem_clone);
+                    }));
+                }
                 Ingredients::Foam => {}
                 Ingredients::Cacao => {
                     containers.push(thread::spawn(move || {
@@ -221,7 +226,7 @@ mod coffemachine_test {
     #[test]
     fn it_should_signal_coffe_dispenser() {
         let coffemachine: CoffeMachine = CoffeMachine::new("text".to_string(), 2);
-        let new_ticket = Order::new(10, 10, 10);
+        let new_ticket = Order::new(10, 10, 10, 10);
         let q = OrderManager::new();
         let monitor = Arc::new((Mutex::new(q), Condvar::new()));
         let (order_lock, cvar) = &*monitor;
