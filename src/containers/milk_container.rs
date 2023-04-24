@@ -4,7 +4,7 @@ use crate::helpers::resourse::Resourse;
 
 use super::container::Container;
 
-const CAPACITY: i32 = 1000;
+const CAPACITY: i32 = 1500;
 const FINISH_FLAG: i32 = -1;
 const NO_MORE: i32 = 0;
 
@@ -63,6 +63,12 @@ impl MilkContainer {
             cvar.notify_all();
         }
     }
+
+    fn check_capacity(&self) -> bool {
+        let min_capacity = (CAPACITY as f32) * (0.2 as f32);
+        self.capacity as f32 <= min_capacity
+    }
+
 }
 
 impl Container for MilkContainer {
@@ -87,6 +93,11 @@ impl Container for MilkContainer {
                 if let Ok(amounte_consumed) = self.consume(res) {
                     let (res_lock, res_cvar) = &*response_monitor;
                     self.notify_dispenser(res_lock, res_cvar, Resourse::new(amounte_consumed));
+                    
+                    if self.check_capacity(){ 
+                        println!("[milk container] - CAPACITY LOWER THAN 20% ")
+                    }
+
                     if res == FINISH_FLAG {
                         println!("[milk container] - finishing ");
                         break;
@@ -104,7 +115,7 @@ mod milk_container_test {
     use std::sync::{Arc, Condvar, Mutex};
 
     use crate::{
-        containers::milk_container::{MilkContainer, FINISH_FLAG, NO_MORE},
+        containers::milk_container::{MilkContainer, FINISH_FLAG, NO_MORE, CAPACITY},
         helpers::resourse::Resourse,
     };
 
@@ -120,7 +131,7 @@ mod milk_container_test {
         let mut cacao_container = MilkContainer::new();
         let amount = 10;
         cacao_container.consume(amount).unwrap();
-        assert_eq!(cacao_container.capacity, 990)
+        assert_eq!(cacao_container.capacity, (CAPACITY - amount))
     }
 
     #[test]
@@ -166,5 +177,13 @@ mod milk_container_test {
         if let Ok(g) = cvar.wait_while(lock.lock().unwrap(), |s| s.is_not_ready()) {
             assert_eq!(g.get_amount(), 10);
         };
+    }
+
+    #[test]
+    fn it_should_return_true_when_capacity_is_lower_than_20_percent(){
+        let mut coffee_grain_container = MilkContainer::new();
+        /* 1500 is max capacity, 300 is 20% */
+        coffee_grain_container.capacity = 300;
+        assert!(coffee_grain_container.check_capacity())
     }
 }

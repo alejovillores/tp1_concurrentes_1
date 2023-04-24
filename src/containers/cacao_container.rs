@@ -65,6 +65,12 @@ impl CacaoContainer {
             cvar.notify_all();
         }
     }
+
+    fn check_capacity(&self) -> bool {
+        let min_capacity = (N as f32) * (0.2 as f32);
+        self.capacity as f32 <= min_capacity
+    }
+
 }
 
 impl Container for CacaoContainer {
@@ -83,6 +89,11 @@ impl Container for CacaoContainer {
                 if let Ok(amounte_consumed) = self.consume(res) {
                     let (res_lock, res_cvar) = &*response_monitor;
                     self.notify_dispenser(res_lock, res_cvar, Resourse::new(amounte_consumed));
+                    
+                    if self.check_capacity(){ 
+                        println!("[cacao container] - CAPACITY LOWER THAN 20% ")
+                    }
+
                     if res == FINISH_FLAG {
                         println!("[cacao container] - finishing ");
                         break;
@@ -153,5 +164,13 @@ mod cacao_container_test {
         if let Ok(g) = cvar.wait_while(lock.lock().unwrap(), |s| s.is_not_ready()) {
             assert_eq!(g.get_amount(), 10);
         };
+    }
+
+    #[test]
+    fn it_should_return_true_when_capacity_is_lower_than_20_percent(){
+        let mut coffee_grain_container = CacaoContainer::new();
+        /* 1000 is max capacity, 200 is 20% */
+        coffee_grain_container.capacity = 200;
+        assert!(coffee_grain_container.check_capacity())
     }
 }

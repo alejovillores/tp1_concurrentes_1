@@ -82,6 +82,12 @@ impl CoffeeGrainContainer {
         };
         Err("[error] - coffee amount monitor failed in coffee dispenser".to_string())
     }
+    
+    fn check_capacity(&self) -> bool {
+        let min_capacity = (CAPACITY as f32) * (0.2 as f32);
+        self.capacity as f32 <= min_capacity
+    }
+
 }
 
 impl Container for CoffeeGrainContainer {
@@ -95,6 +101,9 @@ impl Container for CoffeeGrainContainer {
             let (lock, cvar) = &*request_monitor;
             if let Ok(amount) = self.wait_refill(lock, cvar) {
                 let refill_amount = self.refill(amount);
+                if self.check_capacity(){ 
+                    println!("[coffee grain container] - CAPACITY LOWER THAN 20% ")
+                }
                 let resourse = Resourse::new(refill_amount);
 
                 let (res_lock, res_cvar) = &*response_monitor;
@@ -143,5 +152,13 @@ mod coffee_grain_container_test {
         let expected = 40;
 
         assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn it_should_return_true_when_capacity_is_lower_than_20_percent(){
+        let mut coffee_grain_container = CoffeeGrainContainer::new();
+        /* 2500 is max capacity, 500 is 20% */
+        coffee_grain_container.capacity = 500;
+        assert!(coffee_grain_container.check_capacity())
     }
 }
