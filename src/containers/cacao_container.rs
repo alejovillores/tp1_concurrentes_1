@@ -5,6 +5,7 @@ use crate::helpers::resourse::Resourse;
 
 const N: i32 = 1000;
 const FINISH_FLAG: i32 = -1;
+const NO_MORE: i32 = 0;
 
 pub struct CacaoContainer {
     capacity: i32,
@@ -21,8 +22,10 @@ impl CacaoContainer {
         if (amount.is_positive()) && (amount <= self.capacity) {
             self.capacity -= amount;
             Ok(amount)
-        } else {
+        } else if amount.is_negative() {
             Ok(FINISH_FLAG)
+        } else {
+            Ok(NO_MORE)
         }
     }
 

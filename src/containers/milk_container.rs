@@ -6,6 +6,7 @@ use super::container::Container;
 
 const CAPACITY: i32 = 1000;
 const FINISH_FLAG: i32 = -1;
+const NO_MORE: i32 = 0;
 
 pub struct MilkContainer {
     capacity: i32,
@@ -22,8 +23,10 @@ impl MilkContainer {
         if (amount.is_positive()) && (amount <= self.capacity) {
             self.capacity -= amount;
             Ok(amount)
-        } else {
+        } else if amount.is_negative() {
             Ok(FINISH_FLAG)
+        } else {
+            Ok(NO_MORE)
         }
     }
 
@@ -101,7 +104,7 @@ mod milk_container_test {
     use std::sync::{Arc, Condvar, Mutex};
 
     use crate::{
-        containers::milk_container::{MilkContainer, FINISH_FLAG},
+        containers::milk_container::{MilkContainer, FINISH_FLAG, NO_MORE},
         helpers::resourse::Resourse,
     };
 
@@ -121,11 +124,19 @@ mod milk_container_test {
     }
 
     #[test]
-    fn it_should_send_finish_flag_when_no_capacity() {
+    fn it_should_send_finish_flag_when_finish_flag() {
+        let mut milk_container = MilkContainer::new();
+        let amount = -1;
+        let res = milk_container.consume(amount).unwrap();
+        assert_eq!(res, FINISH_FLAG)
+    }
+
+    #[test]
+    fn it_should_send_no_more_flag_when_no_capacity() {
         let mut milk_container = MilkContainer::new();
         let amount = 1100;
         let res = milk_container.consume(amount).unwrap();
-        assert_eq!(res, FINISH_FLAG)
+        assert_eq!(res, NO_MORE)
     }
 
     #[test]

@@ -9,6 +9,7 @@ use std::{
 
 const CAPACITY: i32 = 100;
 const FINISH_FLAG: i32 = -1;
+const NO_MORE: i32 = 0;
 
 pub struct CoffeContainer {
     capacity: i32,
@@ -26,10 +27,9 @@ impl CoffeContainer {
         &mut self,
         refill_req_monitor: Arc<(Mutex<Resourse>, Condvar)>,
         refill_res_monitor: Arc<(Mutex<Resourse>, Condvar)>,
-        refill_amount: i32,
     ) {
         // ask
-        let req_resourse = Resourse::new(refill_amount);
+        let req_resourse = Resourse::new(CAPACITY);
         let (req_lock, req_cvar) = &*refill_req_monitor;
         self.notify_container(req_lock, req_cvar, req_resourse);
 
@@ -47,33 +47,32 @@ impl CoffeContainer {
         }
     }
 
-    // Consume capacity or ask for refill
     fn consume(
         &mut self,
         refill_req_monitor: Arc<(Mutex<Resourse>, Condvar)>,
         refill_res_monitor: Arc<(Mutex<Resourse>, Condvar)>,
         amount: i32,
     ) -> Result<i32, String> {
+        if self.capacity == NO_MORE {
+            self.refill(refill_req_monitor.clone(), refill_res_monitor.clone());
+            return self.consume(refill_req_monitor, refill_res_monitor, amount);
+        }
+
         if self.capacity >= amount && amount.is_positive() {
             self.capacity -= amount;
             return Ok(amount);
         }
+
         if self.capacity == FINISH_FLAG {
-            return Ok(FINISH_FLAG);
+            return Ok(NO_MORE);
         }
 
         if amount.is_negative() {
             self.notify_end_message(refill_req_monitor);
-            Ok(FINISH_FLAG)
-        } else {
-            let refill_amount = CAPACITY - self.capacity;
-            self.refill(
-                refill_req_monitor.clone(),
-                refill_res_monitor.clone(),
-                refill_amount,
-            );
-            self.consume(refill_req_monitor, refill_res_monitor, amount)
+            return Ok(FINISH_FLAG);
         }
+
+        Err("[error] - could not consume".to_string())
     }
 
     // Waits for dispenser to send new coffee request
@@ -250,7 +249,7 @@ mod coffecontainer_test {
             resourse.ready_to_read();
             res_cvar.notify_all();
         }
-        coffee_container.refill(refill_req_monitor, refill_res_monitor.clone(), 100);
+        coffee_container.refill(refill_req_monitor, refill_res_monitor.clone());
 
         assert_eq!(coffee_container.capacity, CAPACITY)
     }

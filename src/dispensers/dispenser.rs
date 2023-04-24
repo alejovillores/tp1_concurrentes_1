@@ -13,6 +13,8 @@ use crate::{
 };
 
 const FINISH_FLAG: i32 = -1;
+const NO_MORE: i32 = 0;
+
 const INGREDIENTS: [Ingredients; 5] = [
     Ingredients::Coffee,
     Ingredients::Milk,
@@ -45,21 +47,30 @@ impl Dispenser {
                 Ingredients::Foam => println!("[dispenser {}] no foam", self.id),
                 Ingredients::CoffeGrain => {}
                 _ => {
-                    let resourse = Resourse::new(order.get_ingredient_amount(ingredient));
+                    let amount = order.get_ingredient_amount(ingredient);
+                    if amount > 0 {
+                        let resourse = Resourse::new(amount);
 
-                    if let Some(sem) = containers_sem.get(&ingredient) {
-                        sem.acquire();
-                        println!(
-                            "[dispenser {}] has access to {:?} container",
-                            self.id, ingredient
-                        );
-                        if let Ok(res) = self.process_ingredient(
-                            req_monitors,
-                            res_monitors,
-                            resourse,
-                            ingredient,
-                        ) {
-                            status = res;
+                        if let Some(sem) = containers_sem.get(&ingredient) {
+                            sem.acquire();
+                            println!(
+                                "[dispenser {}] has access to {:?} container",
+                                self.id, ingredient
+                            );
+                            if let Ok(res) = self.process_ingredient(
+                                req_monitors,
+                                res_monitors,
+                                resourse,
+                                ingredient,
+                            ) {
+                                if res == NO_MORE {
+                                    println!(
+                                        "[dispenser {}] could not take amount needed from {:?} container",
+                                        self.id, ingredient
+                                    );
+                                }
+                                status = res;
+                            }
                         }
                     }
                 }
