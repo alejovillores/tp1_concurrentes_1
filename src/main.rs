@@ -19,8 +19,7 @@ fn main() {
             coffe_machine.start();
         }
         _ => {
-            println!(" filename argument must be provided");
-            return;
+            println!(" filename argument must be provided")
         }
     }
 }
