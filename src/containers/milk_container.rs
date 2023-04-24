@@ -121,7 +121,7 @@ mod milk_container_test {
 
     #[test]
     fn it_should_init_with_n() {
-        let n: i32 = 1000;
+        let n: i32 = 1500;
         let cacao_container = MilkContainer::new();
         assert_eq!(cacao_container.capacity, n)
     }
@@ -145,7 +145,7 @@ mod milk_container_test {
     #[test]
     fn it_should_send_no_more_flag_when_no_capacity() {
         let mut milk_container = MilkContainer::new();
-        let amount = 1100;
+        let amount = 2200;
         let res = milk_container.consume(amount).unwrap();
         assert_eq!(res, NO_MORE)
     }
