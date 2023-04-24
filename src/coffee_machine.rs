@@ -209,7 +209,6 @@ impl CoffeMachine {
     }
 }
 
-
 #[cfg(test)]
 mod coffemachine_test {
     use std::sync::{Arc, Condvar, Mutex};
