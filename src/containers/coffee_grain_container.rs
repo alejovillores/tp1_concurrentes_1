@@ -2,7 +2,7 @@ use std::sync::{Arc, Condvar, Mutex};
 
 use std_semaphore::Semaphore;
 
-use crate::helpers::resourse::Resourse;
+use crate::helpers::{resourse::Resourse, container_message::ContainerMessage};
 
 use super::container::Container;
 

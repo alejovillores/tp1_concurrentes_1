@@ -1,3 +1,5 @@
+use super::container_message::ContainerMessage;
+
 #[derive(Debug)]
 pub struct Resourse {
     amount: i32,
@@ -9,26 +11,30 @@ impl Resourse {
         let not_ready = true;
         Self { amount, not_ready }
     }
-
-    pub fn ready_to_read(&mut self) {
-        self.not_ready = false;
-    }
-
     pub fn get_amount(&self) -> i32 {
         self.amount
     }
+}
 
-    pub fn is_not_ready(&self) -> bool {
+impl ContainerMessage for Resourse {    
+    fn ready_to_read(&mut self) {
+        self.not_ready = false;
+    }
+
+    fn is_not_ready(&self) -> bool {
         self.not_ready
     }
 
-    pub fn read(&mut self) {
+    fn read(&mut self) {
         self.not_ready = true;
     }
 }
 
+
 #[cfg(test)]
 mod resourse_test {
+    use crate::helpers::container_message::ContainerMessage;
+
     use super::Resourse;
 
     #[test]

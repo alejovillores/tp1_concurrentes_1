@@ -14,7 +14,7 @@ use crate::{
     dispensers::dispenser::Dispenser,
     helpers::{
         ingredients::Ingredients, order::Order, order_manager::OrderManager,
-        order_reader::OrderReader, resourse::Resourse, stats_presenter::StatsPresenter,
+        order_reader::OrderReader, resourse::Resourse, stats_presenter::StatsPresenter, container_message::ContainerMessage,
     },
 };
 

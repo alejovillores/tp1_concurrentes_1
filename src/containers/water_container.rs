@@ -4,7 +4,7 @@ use std::{
     time::Duration,
 };
 
-use crate::helpers::resourse::Resourse;
+use crate::helpers::{resourse::Resourse, container_message::ContainerMessage};
 
 use super::container::Container;
 

@@ -64,11 +64,16 @@ Luego de recibir el recurso, el dispenser simula "servir" el ingrediente.
 
 Otra cosa que dificultó la comunicacion entre los dispensers y la maquina es cuando esta ya no tiene mas pedidos. Es por eso que se creo OrderManager, que lo que hace es manejar un estado en que se encuentran los pedidos. Con esta implementacion, los dispensers saben cuando apagarse y cuando avisar a los contenedores que ya no hay mas pedidos.
 
-El OrderManager, a su vez, tiene ciertos datos que luego al presentador de estadisticas le sirven.
+El presentador de estadísticas presentó ciertas dificultades para obtener datos de los contenedores. Esto es asi porque los contenedores solo entendian mensajes request/response de Resourse. Por lo tanto no habia forma de obtener datos de los mismos.\
+La solucion pensada hacia esto fue la de crear mensajes particulares que el contenedor entienda en sus monitores. Es decir, el contenedor, dentro de sus monitores ya no tiene un Resourse, sino que tiene un ContainerMessage.
+
+Este ContainerMessage es un trait que implementa ResourseMessage (anteriormente llamado Resource) y DataMessage. DataMessage es la estructura para obtener informacion sobre el contenedor en particular. 
+
 
 ### _Dificultades al modelar_
 
-Se noto, que dado que los contenedores deben comunicarse entre si por falta de suministro que no se recargue, se deben hacer un especie de request y response entre ellos.\
+Se noto, que dado que los contenedores deben comunicarse entre si por falta de suministro que no se recargue, se deben hacer un especie de request y response entre ellos.
+
 Por ejemplo, el contenedor de cafe molido, en caso de no tener cafe, debe enviarle una señal al contenedor de gramos de cafe para que este le proveea los gramos necesarios. Si este contenedor no tiene mas gramos para proveer, debe avisar al contedor de cafe molido, y este avisar al dispenser ya que no se podrá realizar mas cafe.
 
 ### _Ejecucion_

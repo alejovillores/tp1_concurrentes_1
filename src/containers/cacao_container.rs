@@ -2,6 +2,7 @@ use std::sync::{Condvar, Mutex};
 
 use super::container::Container;
 use crate::helpers::resourse::Resourse;
+use crate::helpers::container_message::ContainerMessage;
 
 const N: i32 = 1000;
 const FINISH_FLAG: i32 = -1;
@@ -111,6 +112,7 @@ mod cacao_container_test {
     use std::sync::{Arc, Condvar, Mutex};
 
     use crate::containers::cacao_container::CacaoContainer;
+    use crate::helpers::container_message::ContainerMessage;
     use crate::helpers::resourse::Resourse;
 
     #[test]

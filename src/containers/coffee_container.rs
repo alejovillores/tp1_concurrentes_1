@@ -1,7 +1,7 @@
 use std_semaphore::Semaphore;
 
 use super::{coffee_grain_container::CoffeeGrainContainer, container::Container};
-use crate::helpers::resourse::Resourse;
+use crate::helpers::{resourse::Resourse, container_message::ContainerMessage};
 use std::{
     sync::{Arc, Condvar, Mutex},
     thread::{self, JoinHandle},
@@ -229,6 +229,7 @@ mod coffecontainer_test {
     use std::sync::{Arc, Condvar, Mutex};
 
     use crate::containers::coffee_container::{CoffeContainer, CAPACITY};
+    use crate::helpers::container_message::ContainerMessage;
     use crate::helpers::resourse::Resourse;
 
     #[test]

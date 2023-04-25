@@ -1,6 +1,6 @@
 use std::sync::{Condvar, Mutex};
 
-use crate::helpers::resourse::Resourse;
+use crate::helpers::{resourse::Resourse, container_message::ContainerMessage};
 
 use super::container::Container;
 
@@ -116,7 +116,7 @@ mod milk_container_test {
 
     use crate::{
         containers::milk_container::{MilkContainer, FINISH_FLAG, NO_MORE, CAPACITY},
-        helpers::resourse::Resourse,
+        helpers::{resourse::Resourse, container_message::ContainerMessage},
     };
 
     #[test]

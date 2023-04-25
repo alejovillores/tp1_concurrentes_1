@@ -9,7 +9,7 @@ use std_semaphore::Semaphore;
 
 use crate::{
     helpers::resourse::Resourse,
-    helpers::{ingredients::Ingredients, order::Order, order_manager::OrderManager},
+    helpers::{ingredients::Ingredients, order::Order, order_manager::OrderManager, container_message::ContainerMessage},
 };
 
 const FINISH_FLAG: i32 = -1;
@@ -210,7 +210,7 @@ mod dispenser_test {
 
     use crate::{
         dispensers::dispenser::Dispenser,
-        helpers::{ingredients::Ingredients, resourse::Resourse},
+        helpers::{ingredients::Ingredients, resourse::Resourse, container_message::ContainerMessage},
         helpers::{order::Order, order_manager::OrderManager},
     };
 
