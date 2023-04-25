@@ -1,4 +1,4 @@
-#[derive(Debug)]
+#[derive(Debug,Clone, Copy)]
 pub enum ContainerMessageType {
     ResourseRequest,
     DataRequest,
@@ -35,6 +35,10 @@ impl ContainerMessage {
 
     pub fn read(&mut self) {
         self.not_ready = true;
+    }
+
+    pub fn get_type(&self) -> ContainerMessageType {
+        self.message_type
     }
 }
 
