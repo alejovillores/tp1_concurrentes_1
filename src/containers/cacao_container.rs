@@ -1,7 +1,6 @@
 use std::sync::{Condvar, Mutex};
 
 use super::container::Container;
-use crate::helpers::resourse::Resourse;
 use crate::helpers::container_message::ContainerMessage;
 
 const N: i32 = 1000;
@@ -30,7 +29,11 @@ impl CacaoContainer {
         }
     }
 
-    fn wait_dispenser(&mut self, lock: &Mutex<Resourse>, cvar: &Condvar) -> Result<i32, String> {
+    fn wait_dispenser(
+        &mut self,
+        lock: &Mutex<ContainerMessage>,
+        cvar: &Condvar,
+    ) -> Result<i32, String> {
         if let Ok(guard) = lock.lock() {
             if let Ok(mut resourse) = cvar.wait_while(guard, |status| status.is_not_ready()) {
                 let cacao_consumed = resourse.get_amount();
@@ -51,7 +54,12 @@ impl CacaoContainer {
     }
 
     // Notify dispenser about new resourse avaliable
-    fn notify_dispenser(&mut self, lock: &Mutex<Resourse>, cvar: &Condvar, res: Resourse) {
+    fn notify_dispenser(
+        &mut self,
+        lock: &Mutex<ContainerMessage>,
+        cvar: &Condvar,
+        res: ContainerMessage,
+    ) {
         if let Ok(mut resourse) = lock.lock() {
             *resourse = res;
             resourse.ready_to_read();
@@ -71,14 +79,13 @@ impl CacaoContainer {
         let min_capacity = (N as f32) * (0.2 as f32);
         self.capacity as f32 <= min_capacity
     }
-
 }
 
 impl Container for CacaoContainer {
     fn start(
         &mut self,
-        request_monitor: std::sync::Arc<(std::sync::Mutex<Resourse>, std::sync::Condvar)>,
-        response_monitor: std::sync::Arc<(std::sync::Mutex<Resourse>, std::sync::Condvar)>,
+        request_monitor: std::sync::Arc<(std::sync::Mutex<ContainerMessage>, std::sync::Condvar)>,
+        response_monitor: std::sync::Arc<(std::sync::Mutex<ContainerMessage>, std::sync::Condvar)>,
         bussy_sem: std::sync::Arc<std_semaphore::Semaphore>,
     ) {
         loop {
@@ -89,9 +96,13 @@ impl Container for CacaoContainer {
 
                 if let Ok(amounte_consumed) = self.consume(res) {
                     let (res_lock, res_cvar) = &*response_monitor;
-                    self.notify_dispenser(res_lock, res_cvar, Resourse::new(amounte_consumed));
-                    
-                    if self.check_capacity(){ 
+                    self.notify_dispenser(
+                        res_lock,
+                        res_cvar,
+                        ContainerMessage::new(amounte_consumed),
+                    );
+
+                    if self.check_capacity() {
                         println!("[cacao container] - CAPACITY LOWER THAN 20% ")
                     }
 
@@ -113,7 +124,6 @@ mod cacao_container_test {
 
     use crate::containers::cacao_container::CacaoContainer;
     use crate::helpers::container_message::ContainerMessage;
-    use crate::helpers::resourse::Resourse;
 
     #[test]
     fn it_should_init_with_n() {
@@ -142,10 +152,11 @@ mod cacao_container_test {
     #[test]
     fn it_should_wait_for_resourse_is_ready() {
         let mut cacao_container = CacaoContainer::new();
-        let mut resourse = Resourse::new(10);
+        let mut resourse = ContainerMessage::new(10);
         resourse.ready_to_read();
 
-        let monitor = Arc::new((Mutex::new(resourse), Condvar::new()));
+        let monitor: Arc<(Mutex<ContainerMessage>, Condvar)> =
+            Arc::new((Mutex::new(resourse), Condvar::new()));
         let (lock, cvar) = &*monitor;
 
         let result = cacao_container.wait_dispenser(lock, cvar).unwrap();
@@ -156,8 +167,8 @@ mod cacao_container_test {
     #[test]
     fn it_should_notify_for_resourse_is_ready() {
         let mut cacao_container = CacaoContainer::new();
-        let resourse_req = Resourse::new(0);
-        let resourse_res = Resourse::new(10);
+        let resourse_req = ContainerMessage::new(0);
+        let resourse_res = ContainerMessage::new(10);
         let monitor = Arc::new((Mutex::new(resourse_req), Condvar::new()));
         let (lock, cvar) = &*monitor;
 
@@ -169,7 +180,7 @@ mod cacao_container_test {
     }
 
     #[test]
-    fn it_should_return_true_when_capacity_is_lower_than_20_percent(){
+    fn it_should_return_true_when_capacity_is_lower_than_20_percent() {
         let mut coffee_grain_container = CacaoContainer::new();
         /* 1000 is max capacity, 200 is 20% */
         coffee_grain_container.capacity = 200;

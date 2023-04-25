@@ -1,6 +1,6 @@
 use std::sync::{Condvar, Mutex};
 
-use crate::helpers::{resourse::Resourse, container_message::ContainerMessage};
+use crate::helpers::container_message::ContainerMessage;
 
 use super::container::Container;
 
@@ -30,7 +30,11 @@ impl MilkContainer {
         }
     }
 
-    fn wait_dispenser(&self, lock: &Mutex<Resourse>, cvar: &Condvar) -> Result<i32, String> {
+    fn wait_dispenser(
+        &self,
+        lock: &Mutex<ContainerMessage>,
+        cvar: &Condvar,
+    ) -> Result<i32, String> {
         if let Ok(guard) = lock.lock() {
             if let Ok(mut resourse) = cvar.wait_while(guard, |status| status.is_not_ready()) {
                 let milk_consumed = resourse.get_amount();
@@ -51,7 +55,12 @@ impl MilkContainer {
     }
 
     // Notify dispenser about new resourse avaliable
-    fn notify_dispenser(&mut self, lock: &Mutex<Resourse>, cvar: &Condvar, res: Resourse) {
+    fn notify_dispenser(
+        &mut self,
+        lock: &Mutex<ContainerMessage>,
+        cvar: &Condvar,
+        res: ContainerMessage,
+    ) {
         if let Ok(mut resourse) = lock.lock() {
             *resourse = res;
             resourse.ready_to_read();
@@ -68,18 +77,17 @@ impl MilkContainer {
         let min_capacity = (CAPACITY as f32) * (0.2 as f32);
         self.capacity as f32 <= min_capacity
     }
-
 }
 
 impl Container for MilkContainer {
     fn start(
         &mut self,
         request_monitor: std::sync::Arc<(
-            std::sync::Mutex<crate::helpers::resourse::Resourse>,
+            std::sync::Mutex<crate::helpers::container_message::ContainerMessage>,
             std::sync::Condvar,
         )>,
         response_monitor: std::sync::Arc<(
-            std::sync::Mutex<crate::helpers::resourse::Resourse>,
+            std::sync::Mutex<crate::helpers::container_message::ContainerMessage>,
             std::sync::Condvar,
         )>,
         bussy_sem: std::sync::Arc<std_semaphore::Semaphore>,
@@ -92,9 +100,13 @@ impl Container for MilkContainer {
 
                 if let Ok(amounte_consumed) = self.consume(res) {
                     let (res_lock, res_cvar) = &*response_monitor;
-                    self.notify_dispenser(res_lock, res_cvar, Resourse::new(amounte_consumed));
-                    
-                    if self.check_capacity(){ 
+                    self.notify_dispenser(
+                        res_lock,
+                        res_cvar,
+                        ContainerMessage::new(amounte_consumed),
+                    );
+
+                    if self.check_capacity() {
                         println!("[milk container] - CAPACITY LOWER THAN 20% ")
                     }
 
@@ -115,8 +127,8 @@ mod milk_container_test {
     use std::sync::{Arc, Condvar, Mutex};
 
     use crate::{
-        containers::milk_container::{MilkContainer, FINISH_FLAG, NO_MORE, CAPACITY},
-        helpers::{resourse::Resourse, container_message::ContainerMessage},
+        containers::milk_container::{MilkContainer, CAPACITY, FINISH_FLAG, NO_MORE},
+        helpers::container_message::ContainerMessage,
     };
 
     #[test]
@@ -153,7 +165,7 @@ mod milk_container_test {
     #[test]
     fn it_should_wait_for_resourse_is_ready() {
         let milk_container: MilkContainer = MilkContainer::new();
-        let mut resourse = Resourse::new(10);
+        let mut resourse = ContainerMessage::new(10);
         resourse.ready_to_read();
 
         let monitor = Arc::new((Mutex::new(resourse), Condvar::new()));
@@ -167,8 +179,8 @@ mod milk_container_test {
     #[test]
     fn it_should_notify_for_resourse_is_ready() {
         let mut milk_container = MilkContainer::new();
-        let resourse_req = Resourse::new(0);
-        let resourse_res = Resourse::new(10);
+        let resourse_req = ContainerMessage::new(0);
+        let resourse_res = ContainerMessage::new(10);
         let monitor = Arc::new((Mutex::new(resourse_req), Condvar::new()));
         let (lock, cvar) = &*monitor;
 
@@ -180,7 +192,7 @@ mod milk_container_test {
     }
 
     #[test]
-    fn it_should_return_true_when_capacity_is_lower_than_20_percent(){
+    fn it_should_return_true_when_capacity_is_lower_than_20_percent() {
         let mut coffee_grain_container = MilkContainer::new();
         /* 1500 is max capacity, 300 is 20% */
         coffee_grain_container.capacity = 300;

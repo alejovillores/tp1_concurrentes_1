@@ -13,8 +13,8 @@ use crate::{
     },
     dispensers::dispenser::Dispenser,
     helpers::{
-        ingredients::Ingredients, order::Order, order_manager::OrderManager,
-        order_reader::OrderReader, resourse::Resourse, stats_presenter::StatsPresenter, container_message::ContainerMessage,
+        container_message::ContainerMessage, ingredients::Ingredients, order::Order,
+        order_manager::OrderManager, order_reader::OrderReader, stats_presenter::StatsPresenter,
     },
 };
 
@@ -31,15 +31,17 @@ const END: i32 = -1;
 pub struct CoffeMachine {
     path: String,
     n_dispensers: i32,
-    req_monitors: HashMap<Ingredients, Arc<(Mutex<Resourse>, Condvar)>>,
-    res_monitors: HashMap<Ingredients, Arc<(Mutex<Resourse>, Condvar)>>,
+    req_monitors: HashMap<Ingredients, Arc<(Mutex<ContainerMessage>, Condvar)>>,
+    res_monitors: HashMap<Ingredients, Arc<(Mutex<ContainerMessage>, Condvar)>>,
     bussy_sem: HashMap<Ingredients, Arc<Semaphore>>,
 }
 
 impl CoffeMachine {
     pub fn new(path: String, n_dispensers: i32) -> Self {
-        let req_monitors: HashMap<Ingredients, Arc<(Mutex<Resourse>, Condvar)>> = HashMap::new();
-        let res_monitors: HashMap<Ingredients, Arc<(Mutex<Resourse>, Condvar)>> = HashMap::new();
+        let req_monitors: HashMap<Ingredients, Arc<(Mutex<ContainerMessage>, Condvar)>> =
+            HashMap::new();
+        let res_monitors: HashMap<Ingredients, Arc<(Mutex<ContainerMessage>, Condvar)>> =
+            HashMap::new();
         let bussy_sem: HashMap<Ingredients, Arc<Semaphore>> = HashMap::new();
 
         Self {
@@ -55,8 +57,8 @@ impl CoffeMachine {
         let mut containers = Vec::with_capacity(INGREDIENTS.len());
 
         for i in INGREDIENTS.iter().copied() {
-            let req_monitor = Arc::new((Mutex::new(Resourse::new(0)), Condvar::new()));
-            let res_monitor = Arc::new((Mutex::new(Resourse::new(0)), Condvar::new()));
+            let req_monitor = Arc::new((Mutex::new(ContainerMessage::new(0)), Condvar::new()));
+            let res_monitor = Arc::new((Mutex::new(ContainerMessage::new(0)), Condvar::new()));
             let sem = Arc::new(Semaphore::new(1));
 
             let request_monitor = req_monitor.clone();
@@ -167,7 +169,7 @@ impl CoffeMachine {
                 if let Some(monitor) = self.req_monitors.get(i) {
                     let (lock_req, cvar) = monitor.as_ref();
                     if let Ok(mut old_resourse) = lock_req.lock() {
-                        *old_resourse = Resourse::new(END);
+                        *old_resourse = ContainerMessage::new(END);
                         old_resourse.ready_to_read();
                         cvar.notify_all();
                     };

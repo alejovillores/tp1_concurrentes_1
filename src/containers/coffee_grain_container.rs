@@ -2,7 +2,7 @@ use std::sync::{Arc, Condvar, Mutex};
 
 use std_semaphore::Semaphore;
 
-use crate::helpers::{resourse::Resourse, container_message::ContainerMessage};
+use crate::helpers::container_message::ContainerMessage;
 
 use super::container::Container;
 
@@ -47,7 +47,11 @@ impl CoffeeGrainContainer {
         EMPTY
     }
 
-    fn wait_refill(&mut self, lock: &Mutex<Resourse>, cvar: &Condvar) -> Result<i32, String> {
+    fn wait_refill(
+        &mut self,
+        lock: &Mutex<ContainerMessage>,
+        cvar: &Condvar,
+    ) -> Result<i32, String> {
         if let Ok(guard) = lock.lock() {
             if let Ok(mut resourse) = cvar.wait_while(guard, |status| status.is_not_ready()) {
                 let coffee_amount = resourse.get_amount();
@@ -66,9 +70,9 @@ impl CoffeeGrainContainer {
 
     fn signal_refill(
         &self,
-        lock: &Mutex<Resourse>,
+        lock: &Mutex<ContainerMessage>,
         cvar: &Condvar,
-        resourse: Resourse,
+        resourse: ContainerMessage,
     ) -> Result<(), String> {
         if let Ok(mut old_resourse) = lock.lock() {
             *old_resourse = resourse;
@@ -82,29 +86,28 @@ impl CoffeeGrainContainer {
         };
         Err("[error] - coffee amount monitor failed in coffee dispenser".to_string())
     }
-    
+
     fn check_capacity(&self) -> bool {
         let min_capacity = (CAPACITY as f32) * (0.2 as f32);
         self.capacity as f32 <= min_capacity
     }
-
 }
 
 impl Container for CoffeeGrainContainer {
     fn start(
         &mut self,
-        request_monitor: Arc<(Mutex<Resourse>, Condvar)>,
-        response_monitor: Arc<(Mutex<Resourse>, Condvar)>,
+        request_monitor: Arc<(Mutex<ContainerMessage>, Condvar)>,
+        response_monitor: Arc<(Mutex<ContainerMessage>, Condvar)>,
         _bussy_sem: Arc<Semaphore>,
     ) {
         loop {
             let (lock, cvar) = &*request_monitor;
             if let Ok(amount) = self.wait_refill(lock, cvar) {
                 let refill_amount = self.refill(amount);
-                if self.check_capacity(){ 
+                if self.check_capacity() {
                     println!("[coffee grain container] - CAPACITY LOWER THAN 20% ")
                 }
-                let resourse = Resourse::new(refill_amount);
+                let resourse = ContainerMessage::new(refill_amount);
 
                 let (res_lock, res_cvar) = &*response_monitor;
                 if self.signal_refill(res_lock, res_cvar, resourse).is_err() {
@@ -155,7 +158,7 @@ mod coffee_grain_container_test {
     }
 
     #[test]
-    fn it_should_return_true_when_capacity_is_lower_than_20_percent(){
+    fn it_should_return_true_when_capacity_is_lower_than_20_percent() {
         let mut coffee_grain_container = CoffeeGrainContainer::new();
         /* 2500 is max capacity, 500 is 20% */
         coffee_grain_container.capacity = 500;

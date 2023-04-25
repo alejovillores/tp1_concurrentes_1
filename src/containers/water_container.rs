@@ -4,7 +4,7 @@ use std::{
     time::Duration,
 };
 
-use crate::helpers::{resourse::Resourse, container_message::ContainerMessage};
+use crate::helpers::container_message::ContainerMessage;
 
 use super::container::Container;
 
@@ -47,7 +47,11 @@ impl WaterContainer {
     }
 
     // Waits for dispenser to send new water request
-    fn wait_dispenser(&mut self, lock: &Mutex<Resourse>, cvar: &Condvar) -> Result<i32, String> {
+    fn wait_dispenser(
+        &mut self,
+        lock: &Mutex<ContainerMessage>,
+        cvar: &Condvar,
+    ) -> Result<i32, String> {
         if let Ok(guard) = lock.lock() {
             if let Ok(mut resourse) = cvar.wait_while(guard, |status| status.is_not_ready()) {
                 let water_amount = resourse.get_amount();
@@ -68,7 +72,12 @@ impl WaterContainer {
     }
 
     // Notify dispenser about new resourse avaliable
-    fn notify_dispenser(&mut self, lock: &Mutex<Resourse>, cvar: &Condvar, res: Resourse) {
+    fn notify_dispenser(
+        &mut self,
+        lock: &Mutex<ContainerMessage>,
+        cvar: &Condvar,
+        res: ContainerMessage,
+    ) {
         if let Ok(mut resourse) = lock.lock() {
             *resourse = res;
             resourse.ready_to_read();
@@ -88,8 +97,8 @@ impl WaterContainer {
 impl Container for WaterContainer {
     fn start(
         &mut self,
-        request_monitor: std::sync::Arc<(Mutex<Resourse>, Condvar)>,
-        response_monitor: std::sync::Arc<(Mutex<Resourse>, Condvar)>,
+        request_monitor: std::sync::Arc<(Mutex<ContainerMessage>, Condvar)>,
+        response_monitor: std::sync::Arc<(Mutex<ContainerMessage>, Condvar)>,
         bussy_sem: std::sync::Arc<std_semaphore::Semaphore>,
     ) {
         loop {
@@ -100,7 +109,11 @@ impl Container for WaterContainer {
 
                 if let Ok(amounte_consumed) = self.consume(res) {
                     let (res_lock, res_cvar) = &*response_monitor;
-                    self.notify_dispenser(res_lock, res_cvar, Resourse::new(amounte_consumed));
+                    self.notify_dispenser(
+                        res_lock,
+                        res_cvar,
+                        ContainerMessage::new(amounte_consumed),
+                    );
                     if res == FINISH_FLAG {
                         println!("[water container] - finishing ");
                         break;

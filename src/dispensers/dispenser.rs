@@ -8,8 +8,8 @@ use std::{
 use std_semaphore::Semaphore;
 
 use crate::{
-    helpers::resourse::Resourse,
-    helpers::{ingredients::Ingredients, order::Order, order_manager::OrderManager, container_message::ContainerMessage},
+    helpers::container_message::ContainerMessage,
+    helpers::{ingredients::Ingredients, order::Order, order_manager::OrderManager},
 };
 
 const FINISH_FLAG: i32 = -1;
@@ -35,8 +35,8 @@ impl Dispenser {
 
     fn process_order(
         &self,
-        req_monitors: &HashMap<Ingredients, Arc<(Mutex<Resourse>, Condvar)>>,
-        res_monitors: &HashMap<Ingredients, Arc<(Mutex<Resourse>, Condvar)>>,
+        req_monitors: &HashMap<Ingredients, Arc<(Mutex<ContainerMessage>, Condvar)>>,
+        res_monitors: &HashMap<Ingredients, Arc<(Mutex<ContainerMessage>, Condvar)>>,
         order: Order,
         containers_sem: &HashMap<Ingredients, Arc<Semaphore>>,
     ) -> i32 {
@@ -49,7 +49,7 @@ impl Dispenser {
                 _ => {
                     let amount = order.get_ingredient_amount(ingredient);
                     if amount > 0 {
-                        let resourse = Resourse::new(amount);
+                        let resourse = ContainerMessage::new(amount);
 
                         if let Some(sem) = containers_sem.get(&ingredient) {
                             sem.acquire();
@@ -82,9 +82,9 @@ impl Dispenser {
     // try to ask for an amount of ingredient and wait for response.
     fn process_ingredient(
         &self,
-        req_monitors: &HashMap<Ingredients, Arc<(Mutex<Resourse>, Condvar)>>,
-        res_monitors: &HashMap<Ingredients, Arc<(Mutex<Resourse>, Condvar)>>,
-        resourse: Resourse,
+        req_monitors: &HashMap<Ingredients, Arc<(Mutex<ContainerMessage>, Condvar)>>,
+        res_monitors: &HashMap<Ingredients, Arc<(Mutex<ContainerMessage>, Condvar)>>,
+        resourse: ContainerMessage,
         ingredient: Ingredients,
     ) -> Result<i32, String> {
         if let Some(monitor) = req_monitors.get(&ingredient) {
@@ -148,9 +148,9 @@ impl Dispenser {
     // Signal a container that amount of ingredient needed
     fn notify_container(
         &self,
-        lock: &Mutex<Resourse>,
+        lock: &Mutex<ContainerMessage>,
         cvar: &Condvar,
-        resourse: Resourse,
+        resourse: ContainerMessage,
     ) -> Result<(), String> {
         if let Ok(mut old_resourse) = lock.lock() {
             *old_resourse = resourse;
@@ -162,7 +162,11 @@ impl Dispenser {
     }
 
     // waits for coffee container to respond
-    fn wait_container(&self, lock: &Mutex<Resourse>, cvar: &Condvar) -> Result<i32, String> {
+    fn wait_container(
+        &self,
+        lock: &Mutex<ContainerMessage>,
+        cvar: &Condvar,
+    ) -> Result<i32, String> {
         if let Ok(guard) = lock.lock() {
             if let Ok(mut resourse) = cvar.wait_while(guard, |status| status.is_not_ready()) {
                 let resourse_amount = resourse.get_amount();
@@ -181,8 +185,8 @@ impl Dispenser {
     pub fn start(
         &self,
         order_monitor: Arc<(Mutex<OrderManager>, Condvar)>,
-        containers_req_monitors: &HashMap<Ingredients, Arc<(Mutex<Resourse>, Condvar)>>,
-        containers_res_monitors: &HashMap<Ingredients, Arc<(Mutex<Resourse>, Condvar)>>,
+        containers_req_monitors: &HashMap<Ingredients, Arc<(Mutex<ContainerMessage>, Condvar)>>,
+        containers_res_monitors: &HashMap<Ingredients, Arc<(Mutex<ContainerMessage>, Condvar)>>,
         containers_sem: &HashMap<Ingredients, Arc<Semaphore>>,
     ) {
         loop {
@@ -210,7 +214,7 @@ mod dispenser_test {
 
     use crate::{
         dispensers::dispenser::Dispenser,
-        helpers::{ingredients::Ingredients, resourse::Resourse, container_message::ContainerMessage},
+        helpers::{container_message::ContainerMessage, ingredients::Ingredients},
         helpers::{order::Order, order_manager::OrderManager},
     };
 
@@ -243,14 +247,14 @@ mod dispenser_test {
     #[test]
     fn it_should_signal_when_new_coffe_amount_is_ready() {
         let dispenser = Dispenser::new(0);
-        let resourse: Resourse = Resourse::new(0);
+        let resourse: ContainerMessage = ContainerMessage::new(0);
 
         let monitor = Arc::new((Mutex::new(resourse), Condvar::new()));
         let monitor_clone = monitor.clone();
         let (lock, cvar) = &*monitor;
         let (lock_clone, cvar_clone) = &*monitor_clone;
 
-        let mut new_resourse: Resourse = Resourse::new(20);
+        let mut new_resourse: ContainerMessage = ContainerMessage::new(20);
         new_resourse.ready_to_read();
 
         dispenser
