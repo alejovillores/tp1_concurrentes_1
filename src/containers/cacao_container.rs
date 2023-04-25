@@ -1,7 +1,7 @@
 use std::sync::{Condvar, Mutex};
 
 use super::container::Container;
-use crate::helpers::container_message::ContainerMessage;
+use crate::helpers::container_message::{ContainerMessage, ContainerMessageType};
 
 const N: i32 = 1000;
 const FINISH_FLAG: i32 = -1;
@@ -99,7 +99,10 @@ impl Container for CacaoContainer {
                     self.notify_dispenser(
                         res_lock,
                         res_cvar,
-                        ContainerMessage::new(amounte_consumed),
+                        ContainerMessage::new(
+                            amounte_consumed,
+                            ContainerMessageType::ResourseRequest,
+                        ),
                     );
 
                     if self.check_capacity() {
@@ -123,7 +126,7 @@ mod cacao_container_test {
     use std::sync::{Arc, Condvar, Mutex};
 
     use crate::containers::cacao_container::CacaoContainer;
-    use crate::helpers::container_message::ContainerMessage;
+    use crate::helpers::container_message::{ContainerMessage, ContainerMessageType};
 
     #[test]
     fn it_should_init_with_n() {
@@ -152,7 +155,7 @@ mod cacao_container_test {
     #[test]
     fn it_should_wait_for_resourse_is_ready() {
         let mut cacao_container = CacaoContainer::new();
-        let mut resourse = ContainerMessage::new(10);
+        let mut resourse = ContainerMessage::new(10, ContainerMessageType::ResourseRequest);
         resourse.ready_to_read();
 
         let monitor: Arc<(Mutex<ContainerMessage>, Condvar)> =
@@ -167,8 +170,8 @@ mod cacao_container_test {
     #[test]
     fn it_should_notify_for_resourse_is_ready() {
         let mut cacao_container = CacaoContainer::new();
-        let resourse_req = ContainerMessage::new(0);
-        let resourse_res = ContainerMessage::new(10);
+        let resourse_req = ContainerMessage::new(0, ContainerMessageType::ResourseRequest);
+        let resourse_res = ContainerMessage::new(10, ContainerMessageType::ResourseRequest);
         let monitor = Arc::new((Mutex::new(resourse_req), Condvar::new()));
         let (lock, cvar) = &*monitor;
 

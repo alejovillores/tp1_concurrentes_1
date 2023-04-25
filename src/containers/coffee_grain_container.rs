@@ -2,7 +2,7 @@ use std::sync::{Arc, Condvar, Mutex};
 
 use std_semaphore::Semaphore;
 
-use crate::helpers::container_message::ContainerMessage;
+use crate::helpers::container_message::{ContainerMessage, ContainerMessageType};
 
 use super::container::Container;
 
@@ -107,7 +107,8 @@ impl Container for CoffeeGrainContainer {
                 if self.check_capacity() {
                     println!("[coffee grain container] - CAPACITY LOWER THAN 20% ")
                 }
-                let resourse = ContainerMessage::new(refill_amount);
+                let resourse =
+                    ContainerMessage::new(refill_amount, ContainerMessageType::ResourseRequest);
 
                 let (res_lock, res_cvar) = &*response_monitor;
                 if self.signal_refill(res_lock, res_cvar, resourse).is_err() {

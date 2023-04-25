@@ -9,7 +9,10 @@ use std_semaphore::Semaphore;
 
 use crate::{
     helpers::container_message::ContainerMessage,
-    helpers::{ingredients::Ingredients, order::Order, order_manager::OrderManager},
+    helpers::{
+        container_message::ContainerMessageType, ingredients::Ingredients, order::Order,
+        order_manager::OrderManager,
+    },
 };
 
 const FINISH_FLAG: i32 = -1;
@@ -49,7 +52,8 @@ impl Dispenser {
                 _ => {
                     let amount = order.get_ingredient_amount(ingredient);
                     if amount > 0 {
-                        let resourse = ContainerMessage::new(amount);
+                        let resourse =
+                            ContainerMessage::new(amount, ContainerMessageType::ResourseRequest);
 
                         if let Some(sem) = containers_sem.get(&ingredient) {
                             sem.acquire();
@@ -214,7 +218,10 @@ mod dispenser_test {
 
     use crate::{
         dispensers::dispenser::Dispenser,
-        helpers::{container_message::ContainerMessage, ingredients::Ingredients},
+        helpers::{
+            container_message::{ContainerMessage, ContainerMessageType},
+            ingredients::Ingredients,
+        },
         helpers::{order::Order, order_manager::OrderManager},
     };
 
@@ -247,14 +254,16 @@ mod dispenser_test {
     #[test]
     fn it_should_signal_when_new_coffe_amount_is_ready() {
         let dispenser = Dispenser::new(0);
-        let resourse: ContainerMessage = ContainerMessage::new(0);
+        let resourse: ContainerMessage =
+            ContainerMessage::new(0, ContainerMessageType::ResourseRequest);
 
         let monitor = Arc::new((Mutex::new(resourse), Condvar::new()));
         let monitor_clone = monitor.clone();
         let (lock, cvar) = &*monitor;
         let (lock_clone, cvar_clone) = &*monitor_clone;
 
-        let mut new_resourse: ContainerMessage = ContainerMessage::new(20);
+        let mut new_resourse: ContainerMessage =
+            ContainerMessage::new(20, ContainerMessageType::ResourseRequest);
         new_resourse.ready_to_read();
 
         dispenser

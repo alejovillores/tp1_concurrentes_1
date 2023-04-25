@@ -4,7 +4,7 @@ use std::{
     time::Duration,
 };
 
-use crate::helpers::container_message::ContainerMessage;
+use crate::helpers::container_message::{ContainerMessage, ContainerMessageType};
 
 use super::container::Container;
 
@@ -112,7 +112,10 @@ impl Container for WaterContainer {
                     self.notify_dispenser(
                         res_lock,
                         res_cvar,
-                        ContainerMessage::new(amounte_consumed),
+                        ContainerMessage::new(
+                            amounte_consumed,
+                            ContainerMessageType::ResourseRequest,
+                        ),
                     );
                     if res == FINISH_FLAG {
                         println!("[water container] - finishing ");

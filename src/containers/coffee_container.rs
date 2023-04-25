@@ -1,7 +1,7 @@
 use std_semaphore::Semaphore;
 
 use super::{coffee_grain_container::CoffeeGrainContainer, container::Container};
-use crate::helpers::container_message::ContainerMessage;
+use crate::helpers::container_message::{ContainerMessage, ContainerMessageType};
 use std::{
     sync::{Arc, Condvar, Mutex},
     thread::{self, JoinHandle},
@@ -29,7 +29,7 @@ impl CoffeContainer {
         refill_res_monitor: Arc<(Mutex<ContainerMessage>, Condvar)>,
     ) {
         // ask
-        let req_resourse = ContainerMessage::new(CAPACITY);
+        let req_resourse = ContainerMessage::new(CAPACITY, ContainerMessageType::ResourseRequest);
         let (req_lock, req_cvar) = &*refill_req_monitor;
         self.notify_container(req_lock, req_cvar, req_resourse);
 
@@ -184,7 +184,7 @@ impl CoffeContainer {
 
     fn notify_end_message(&mut self, refill_req_monitor: Arc<(Mutex<ContainerMessage>, Condvar)>) {
         // send
-        let req_resourse = ContainerMessage::new(FINISH_FLAG);
+        let req_resourse = ContainerMessage::new(FINISH_FLAG, ContainerMessageType::KillRequest);
         let (req_lock, req_cvar) = &*refill_req_monitor;
         self.notify_container(req_lock, req_cvar, req_resourse);
     }
@@ -204,8 +204,20 @@ impl Container for CoffeContainer {
         dispenser_res_monitor: Arc<(Mutex<ContainerMessage>, Condvar)>,
         bussy_sem: Arc<Semaphore>,
     ) {
-        let refill_req_monitor = Arc::new((Mutex::new(ContainerMessage::new(0)), Condvar::new()));
-        let refill_res_monitor = Arc::new((Mutex::new(ContainerMessage::new(0)), Condvar::new()));
+        let refill_req_monitor = Arc::new((
+            Mutex::new(ContainerMessage::new(
+                0,
+                ContainerMessageType::ResourseRequest,
+            )),
+            Condvar::new(),
+        ));
+        let refill_res_monitor = Arc::new((
+            Mutex::new(ContainerMessage::new(
+                0,
+                ContainerMessageType::ResourseRequest,
+            )),
+            Condvar::new(),
+        ));
         let sem = Arc::new(Semaphore::new(0));
         let grain_container =
             self.init_container(refill_req_monitor.clone(), refill_res_monitor.clone(), sem);
@@ -223,7 +235,10 @@ impl Container for CoffeContainer {
                     self.notify_dispenser(
                         res_lock,
                         res_cvar,
-                        ContainerMessage::new(amounte_consumed),
+                        ContainerMessage::new(
+                            amounte_consumed,
+                            ContainerMessageType::ResourseRequest,
+                        ),
                     );
                     if res == FINISH_FLAG {
                         self.kill_container(grain_container);
@@ -243,7 +258,7 @@ mod coffecontainer_test {
     use std::sync::{Arc, Condvar, Mutex};
 
     use crate::containers::coffee_container::{CoffeContainer, CAPACITY};
-    use crate::helpers::container_message::ContainerMessage;
+    use crate::helpers::container_message::{ContainerMessage, ContainerMessageType};
 
     #[test]
     fn it_should_init_with_0() {
@@ -253,8 +268,20 @@ mod coffecontainer_test {
 
     #[test]
     fn it_should_refill_with_0_capacity() {
-        let refill_req_monitor = Arc::new((Mutex::new(ContainerMessage::new(100)), Condvar::new()));
-        let refill_res_monitor = Arc::new((Mutex::new(ContainerMessage::new(100)), Condvar::new()));
+        let refill_req_monitor = Arc::new((
+            Mutex::new(ContainerMessage::new(
+                100,
+                ContainerMessageType::ResourseRequest,
+            )),
+            Condvar::new(),
+        ));
+        let refill_res_monitor = Arc::new((
+            Mutex::new(ContainerMessage::new(
+                100,
+                ContainerMessageType::ResourseRequest,
+            )),
+            Condvar::new(),
+        ));
         let mut coffee_container = CoffeContainer::new();
         coffee_container.capacity = 0;
 
@@ -271,7 +298,7 @@ mod coffecontainer_test {
     #[test]
     fn it_should_has_value_with_valid_amount() {
         let mut coffee_container = CoffeContainer::new();
-        let mut res = ContainerMessage::new(10);
+        let mut res = ContainerMessage::new(10, ContainerMessageType::ResourseRequest);
         res.ready_to_read();
         let monitor = Arc::new((Mutex::new(res), Condvar::new()));
         let (lock, cvar) = &*monitor;

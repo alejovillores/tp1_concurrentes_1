@@ -1,6 +1,6 @@
 use std::sync::{Condvar, Mutex};
 
-use crate::helpers::container_message::ContainerMessage;
+use crate::helpers::container_message::{ContainerMessage, ContainerMessageType};
 
 use super::container::Container;
 
@@ -103,7 +103,10 @@ impl Container for MilkContainer {
                     self.notify_dispenser(
                         res_lock,
                         res_cvar,
-                        ContainerMessage::new(amounte_consumed),
+                        ContainerMessage::new(
+                            amounte_consumed,
+                            ContainerMessageType::ResourseRequest,
+                        ),
                     );
 
                     if self.check_capacity() {
@@ -128,7 +131,7 @@ mod milk_container_test {
 
     use crate::{
         containers::milk_container::{MilkContainer, CAPACITY, FINISH_FLAG, NO_MORE},
-        helpers::container_message::ContainerMessage,
+        helpers::container_message::{ContainerMessage, ContainerMessageType},
     };
 
     #[test]
@@ -165,7 +168,7 @@ mod milk_container_test {
     #[test]
     fn it_should_wait_for_resourse_is_ready() {
         let milk_container: MilkContainer = MilkContainer::new();
-        let mut resourse = ContainerMessage::new(10);
+        let mut resourse = ContainerMessage::new(10, ContainerMessageType::ResourseRequest);
         resourse.ready_to_read();
 
         let monitor = Arc::new((Mutex::new(resourse), Condvar::new()));
@@ -179,8 +182,8 @@ mod milk_container_test {
     #[test]
     fn it_should_notify_for_resourse_is_ready() {
         let mut milk_container = MilkContainer::new();
-        let resourse_req = ContainerMessage::new(0);
-        let resourse_res = ContainerMessage::new(10);
+        let resourse_req = ContainerMessage::new(0, ContainerMessageType::ResourseRequest);
+        let resourse_res = ContainerMessage::new(10, ContainerMessageType::ResourseRequest);
         let monitor = Arc::new((Mutex::new(resourse_req), Condvar::new()));
         let (lock, cvar) = &*monitor;
 

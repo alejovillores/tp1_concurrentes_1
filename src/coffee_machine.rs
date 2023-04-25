@@ -13,8 +13,12 @@ use crate::{
     },
     dispensers::dispenser::Dispenser,
     helpers::{
-        container_message::ContainerMessage, ingredients::Ingredients, order::Order,
-        order_manager::OrderManager, order_reader::OrderReader, stats_presenter::StatsPresenter,
+        container_message::{ContainerMessage, ContainerMessageType},
+        ingredients::Ingredients,
+        order::Order,
+        order_manager::OrderManager,
+        order_reader::OrderReader,
+        stats_presenter::StatsPresenter,
     },
 };
 
@@ -57,8 +61,20 @@ impl CoffeMachine {
         let mut containers = Vec::with_capacity(INGREDIENTS.len());
 
         for i in INGREDIENTS.iter().copied() {
-            let req_monitor = Arc::new((Mutex::new(ContainerMessage::new(0)), Condvar::new()));
-            let res_monitor = Arc::new((Mutex::new(ContainerMessage::new(0)), Condvar::new()));
+            let req_monitor = Arc::new((
+                Mutex::new(ContainerMessage::new(
+                    0,
+                    ContainerMessageType::ResourseRequest,
+                )),
+                Condvar::new(),
+            ));
+            let res_monitor = Arc::new((
+                Mutex::new(ContainerMessage::new(
+                    0,
+                    ContainerMessageType::ResourseRequest,
+                )),
+                Condvar::new(),
+            ));
             let sem = Arc::new(Semaphore::new(1));
 
             let request_monitor = req_monitor.clone();
@@ -169,7 +185,8 @@ impl CoffeMachine {
                 if let Some(monitor) = self.req_monitors.get(i) {
                     let (lock_req, cvar) = monitor.as_ref();
                     if let Ok(mut old_resourse) = lock_req.lock() {
-                        *old_resourse = ContainerMessage::new(END);
+                        *old_resourse =
+                            ContainerMessage::new(END, ContainerMessageType::KillRequest);
                         old_resourse.ready_to_read();
                         cvar.notify_all();
                     };
