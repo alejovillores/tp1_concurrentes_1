@@ -19,7 +19,10 @@ impl CacaoContainer {
     }
 
     fn consume(&mut self, amount: i32) -> Result<i32, String> {
-        println!("[cacao container] - attempting to consume amount {}", amount);
+        println!(
+            "[cacao container] - attempting to consume amount {}",
+            amount
+        );
         if amount <= self.capacity {
             self.capacity -= amount;
             Ok(amount)
@@ -42,7 +45,6 @@ impl CacaoContainer {
         };
         Err("[error] - cacao container  monitor failed".to_string())
     }
-
 
     // Notify dispenser about new resourse avaliable
     fn notify_dispenser(
@@ -83,7 +85,6 @@ impl Container for CacaoContainer {
             let (lock, cvar) = &*request_monitor;
             println!("[cacao container] - waiting for request");
             if let Ok(res) = self.wait_dispenser(lock, cvar) {
-
                 let container_message_response: ContainerMessage;
 
                 match res.get_type() {
@@ -91,55 +92,49 @@ impl Container for CacaoContainer {
                         if let Ok(amounte_consumed) = self.consume(res.get_amount()) {
                             container_message_response = ContainerMessage::new(
                                 amounte_consumed,
-                                ContainerMessageType::ResourseRequest)
-                        }
-                        else {
+                                ContainerMessageType::ResourseRequest,
+                            )
+                        } else {
                             // consume fails --> kill the thread
                             container_message_response = ContainerMessage::new(
                                 FINISH_FLAG,
-                                ContainerMessageType::KillRequest)
+                                ContainerMessageType::KillRequest,
+                            )
                         }
-                    },
+                    }
                     ContainerMessageType::DataRequest => {
-                        container_message_response = ContainerMessage::new(
-                            self.capacity,
-                            ContainerMessageType::DataRequest)
-                    },
+                        container_message_response =
+                            ContainerMessage::new(self.capacity, ContainerMessageType::DataRequest)
+                    }
                     ContainerMessageType::KillRequest => {
                         println!("[cacao container] - dispenser sending FINISHING FLAG",);
-                        container_message_response = ContainerMessage::new(
-                            FINISH_FLAG,
-                            ContainerMessageType::KillRequest)
-                    },
+                        container_message_response =
+                            ContainerMessage::new(FINISH_FLAG, ContainerMessageType::KillRequest)
+                    }
                 }
-                
+
                 let (res_lock, res_cvar) = &*response_monitor;
-                self.notify_dispenser(
-                    res_lock,
-                    res_cvar,
-                    container_message_response,
-                );
+                self.notify_dispenser(res_lock, res_cvar, container_message_response);
 
                 if self.check_capacity() {
                     println!("[cacao container] - CAPACITY LOWER THAN 20% ")
                 }
-                if matches!(res.get_type(),ContainerMessageType::KillRequest) {
+                if matches!(res.get_type(), ContainerMessageType::KillRequest) {
                     println!("[cacao container] - finishing ");
                     break;
                 }
                 bussy_sem.release();
                 println!("[cacao container] - released sem")
-                }
             }
         }
+    }
 }
-
 
 #[cfg(test)]
 mod cacao_container_test {
     use std::sync::{Arc, Condvar, Mutex};
 
-    use crate::containers::cacao_container::CacaoContainer;
+    use crate::containers::cacao_container::{CacaoContainer, FINISH_FLAG};
     use crate::helpers::container_message::{ContainerMessage, ContainerMessageType};
 
     #[test]
@@ -194,6 +189,21 @@ mod cacao_container_test {
         let result = cacao_container.wait_dispenser(lock, cvar).unwrap();
 
         assert_eq!(result.get_amount(), 0);
+    }
+
+    #[test]
+    fn it_should_wait_for_kill_request_is_ready_and_return_resourse() {
+        let mut cacao_container = CacaoContainer::new();
+        let mut resourse = ContainerMessage::new(FINISH_FLAG, ContainerMessageType::KillRequest);
+        resourse.ready_to_read();
+
+        let monitor: Arc<(Mutex<ContainerMessage>, Condvar)> =
+            Arc::new((Mutex::new(resourse), Condvar::new()));
+        let (lock, cvar) = &*monitor;
+
+        let result = cacao_container.wait_dispenser(lock, cvar).unwrap();
+
+        assert_eq!(result.get_amount(), FINISH_FLAG);
     }
 
     #[test]

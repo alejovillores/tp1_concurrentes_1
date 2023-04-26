@@ -20,38 +20,28 @@ impl MilkContainer {
     }
 
     fn consume(&mut self, amount: i32) -> Result<i32, String> {
-        if (amount.is_positive()) && (amount <= self.capacity) {
+        println!("[milk container] - attempting to consume amount {}", amount);
+        if amount <= self.capacity {
             self.capacity -= amount;
             Ok(amount)
-        } else if amount.is_negative() {
-            Ok(FINISH_FLAG)
         } else {
             Ok(NO_MORE)
         }
     }
 
     fn wait_dispenser(
-        &self,
+        &mut self,
         lock: &Mutex<ContainerMessage>,
         cvar: &Condvar,
-    ) -> Result<i32, String> {
+    ) -> Result<ContainerMessage, String> {
         if let Ok(guard) = lock.lock() {
-            if let Ok(mut resourse) = cvar.wait_while(guard, |status| status.is_not_ready()) {
-                let milk_consumed = resourse.get_amount();
-
-                if milk_consumed == FINISH_FLAG {
-                    println!("[milk container] - sending FINISHING FLAG",);
-                } else {
-                    println!(
-                        "[milk container] - asked for {} units of milk",
-                        milk_consumed
-                    );
-                }
-                resourse.read();
-                return Ok(milk_consumed);
+            if let Ok(mut message) = cvar.wait_while(guard, |status| status.is_not_ready()) {
+                message.read();
+                let result = ContainerMessage::new(message.get_amount(), message.get_type());
+                return Ok(result);
             }
         };
-        Err("[error] - milk container  monitor failed".to_string())
+        Err("[error] - cacao container  monitor failed".to_string())
     }
 
     // Notify dispenser about new resourse avaliable
@@ -96,30 +86,48 @@ impl Container for MilkContainer {
             let (lock, cvar) = &*request_monitor;
             println!("[milk container] - waiting for request");
             if let Ok(res) = self.wait_dispenser(lock, cvar) {
-                println!("[milk container] - attempting to consume amount {}", res);
+                println!(
+                    "[milk container] - attempting to consume amount {}",
+                    res.get_amount()
+                );
 
-                if let Ok(amounte_consumed) = self.consume(res) {
-                    let (res_lock, res_cvar) = &*response_monitor;
-                    self.notify_dispenser(
-                        res_lock,
-                        res_cvar,
-                        ContainerMessage::new(
-                            amounte_consumed,
-                            ContainerMessageType::ResourseRequest,
-                        ),
-                    );
-
-                    if self.check_capacity() {
-                        println!("[milk container] - CAPACITY LOWER THAN 20% ")
+                let container_message_response: ContainerMessage;
+                match res.get_type() {
+                    ContainerMessageType::ResourseRequest => {
+                        if let Ok(amounte_consumed) = self.consume(res.get_amount()) {
+                            container_message_response = ContainerMessage::new(
+                                amounte_consumed,
+                                ContainerMessageType::ResourseRequest,
+                            )
+                        } else {
+                            // consume fails --> kill the thread
+                            container_message_response = ContainerMessage::new(
+                                FINISH_FLAG,
+                                ContainerMessageType::KillRequest,
+                            )
+                        }
                     }
-
-                    if res == FINISH_FLAG {
-                        println!("[milk container] - finishing ");
-                        break;
+                    ContainerMessageType::DataRequest => {
+                        container_message_response =
+                            ContainerMessage::new(self.capacity, ContainerMessageType::DataRequest)
                     }
-                    bussy_sem.release();
-                    println!("[milk container] - released sem")
+                    ContainerMessageType::KillRequest => {
+                        println!("[milk container] - dispenser sending FINISHING FLAG",);
+                        container_message_response =
+                            ContainerMessage::new(FINISH_FLAG, ContainerMessageType::KillRequest)
+                    }
                 }
+                let (res_lock, res_cvar) = &*response_monitor;
+                self.notify_dispenser(res_lock, res_cvar, container_message_response);
+                if self.check_capacity() {
+                    println!("[milk container] - CAPACITY LOWER THAN 20% ")
+                }
+                if matches!(res.get_type(), ContainerMessageType::KillRequest) {
+                    println!("[milk container] - finishing ");
+                    break;
+                }
+                bussy_sem.release();
+                println!("[milk container] - released sem");
             }
         }
     }
@@ -166,17 +174,46 @@ mod milk_container_test {
     }
 
     #[test]
-    fn it_should_wait_for_resourse_is_ready() {
-        let milk_container: MilkContainer = MilkContainer::new();
+    fn it_should_wait_for_resourse_is_ready_and_return_message() {
+        let mut milk_container: MilkContainer = MilkContainer::new();
         let mut resourse = ContainerMessage::new(10, ContainerMessageType::ResourseRequest);
         resourse.ready_to_read();
 
         let monitor = Arc::new((Mutex::new(resourse), Condvar::new()));
         let (lock, cvar) = &*monitor;
 
-        let result = milk_container.wait_dispenser(lock, cvar).unwrap();
+        let result: ContainerMessage = milk_container.wait_dispenser(lock, cvar).unwrap();
 
-        assert_eq!(result, 10);
+        assert_eq!(result.get_amount(), 10);
+    }
+    #[test]
+    fn it_should_wait_for_data_request_is_ready_and_return_resourse() {
+        let mut cacao_container = MilkContainer::new();
+        let mut resourse = ContainerMessage::new(0, ContainerMessageType::DataRequest);
+        resourse.ready_to_read();
+
+        let monitor: Arc<(Mutex<ContainerMessage>, Condvar)> =
+            Arc::new((Mutex::new(resourse), Condvar::new()));
+        let (lock, cvar) = &*monitor;
+
+        let result = cacao_container.wait_dispenser(lock, cvar).unwrap();
+
+        assert_eq!(result.get_amount(), 0);
+    }
+
+    #[test]
+    fn it_should_wait_for_kill_request_is_ready_and_return_resourse() {
+        let mut cacao_container = MilkContainer::new();
+        let mut resourse = ContainerMessage::new(FINISH_FLAG, ContainerMessageType::KillRequest);
+        resourse.ready_to_read();
+
+        let monitor: Arc<(Mutex<ContainerMessage>, Condvar)> =
+            Arc::new((Mutex::new(resourse), Condvar::new()));
+        let (lock, cvar) = &*monitor;
+
+        let result = cacao_container.wait_dispenser(lock, cvar).unwrap();
+
+        assert_eq!(result.get_amount(), FINISH_FLAG);
     }
 
     #[test]
