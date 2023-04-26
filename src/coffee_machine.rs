@@ -8,7 +8,8 @@ use std_semaphore::Semaphore;
 
 use crate::{
     containers::{
-        cacao_container::CacaoContainer, coffee_container::CoffeContainer, container::Container,
+        cacao_container::CacaoContainer, coffee_container::CoffeContainer,
+        coffee_grain_container::CoffeeGrainContainer, container::Container,
         milk_container::MilkContainer, water_container::WaterContainer,
     },
     dispensers::dispenser::Dispenser,
@@ -23,7 +24,8 @@ use crate::{
 };
 
 const TIME: u64 = 5;
-const INGREDIENTS: [Ingredients; 5] = [
+const INGREDIENTS: [Ingredients; 6] = [
+    Ingredients::CoffeGrain,
     Ingredients::Coffee,
     Ingredients::Milk,
     Ingredients::Water,
@@ -87,12 +89,33 @@ impl CoffeMachine {
 
             match i {
                 Ingredients::Coffee => {
+                    let req = self
+                        .req_monitors
+                        .get(&Ingredients::CoffeGrain)
+                        .expect("COFFE GRAIN REQ MONITOR NOT FOUND")
+                        .to_owned();
+                    let res = self
+                        .res_monitors
+                        .get(&Ingredients::CoffeGrain)
+                        .expect("COFFE GRAIN RES MONITOR NOT FOUND")
+                        .to_owned();
+                    let s = self
+                        .bussy_sem
+                        .get(&Ingredients::CoffeGrain)
+                        .expect("COFFE GRAIN SEMAPHORE NOT FOUND")
+                        .to_owned();
                     containers.push(thread::spawn(move || {
-                        let mut coffe_container = CoffeContainer::new();
+                        let mut coffe_container =
+                            CoffeContainer::new(req.clone(), res.clone(), s.clone());
                         coffe_container.start(request_monitor, response_monitor, sem_clone);
                     }));
                 }
-                Ingredients::CoffeGrain => {}
+                Ingredients::CoffeGrain => {
+                    containers.push(thread::spawn(move || {
+                        let mut coffe_container: CoffeeGrainContainer = CoffeeGrainContainer::new();
+                        coffe_container.start(request_monitor, response_monitor, sem_clone);
+                    }));
+                }
                 Ingredients::Milk => {
                     containers.push(thread::spawn(move || {
                         let mut water_container: MilkContainer = MilkContainer::new();
