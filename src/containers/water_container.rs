@@ -10,6 +10,7 @@ use super::container::Container;
 
 const CAPACITY: i32 = 100;
 const FINISH_FLAG: i32 = -1;
+const NO_MORE: i32 = 0;
 
 pub struct WaterContainer {
     capacity: i32,
@@ -22,27 +23,22 @@ impl WaterContainer {
         Self { capacity }
     }
 
-    fn refill(&mut self, amount: i32) {
+    fn refill(&mut self) {
         println!("[water container] - waiting for more hot water");
-        thread::sleep(Duration::from_secs(amount as u64));
+        thread::sleep(Duration::from_millis(CAPACITY as u64));
         self.capacity = CAPACITY;
     }
 
     fn consume(&mut self, amount: i32) -> Result<i32, String> {
-        if (self.capacity <= amount) && (amount <= CAPACITY) {
-            let refill_amount = amount - self.capacity;
-            println!(
-                "[water container] - refilling {} units of water",
-                refill_amount
-            );
-            self.refill(refill_amount);
-            self.consume(amount)
-        } else if (self.capacity >= amount) && (amount.is_positive()) {
-            println!("[water container] - consuming {} units of water", amount);
+        if (self.capacity < amount) && (self.capacity > NO_MORE) {
+            return Ok(NO_MORE);
+        } else if self.capacity == NO_MORE {
+            println!("[water container] - refilling water ");
+            self.refill();
+            return self.consume(amount);
+        } else {
             self.capacity -= amount;
             return Ok(amount);
-        } else {
-            return Ok(FINISH_FLAG);
         }
     }
 
@@ -51,21 +47,12 @@ impl WaterContainer {
         &mut self,
         lock: &Mutex<ContainerMessage>,
         cvar: &Condvar,
-    ) -> Result<i32, String> {
+    ) -> Result<ContainerMessage, String> {
         if let Ok(guard) = lock.lock() {
-            if let Ok(mut resourse) = cvar.wait_while(guard, |status| status.is_not_ready()) {
-                let water_amount = resourse.get_amount();
-
-                if water_amount == FINISH_FLAG {
-                    println!("[water container] - dispenser sending FINISHING FLAG",);
-                } else {
-                    println!(
-                        "[water container] - dispenser asking for {} units of water",
-                        water_amount
-                    );
-                }
-                resourse.read();
-                return Ok(water_amount);
+            if let Ok(mut message) = cvar.wait_while(guard, |status| status.is_not_ready()) {
+                message.read();
+                let result = ContainerMessage::new(message.get_amount(), message.get_type());
+                return Ok(result);
             }
         };
         Err("[error] - water container  monitor failed".to_string())
@@ -105,25 +92,45 @@ impl Container for WaterContainer {
             let (lock, cvar) = &*request_monitor;
             println!("[water container] - waiting for request");
             if let Ok(res) = self.wait_dispenser(lock, cvar) {
-                println!("[water container] - attempting to consume amount {}", res);
-
-                if let Ok(amounte_consumed) = self.consume(res) {
-                    let (res_lock, res_cvar) = &*response_monitor;
-                    self.notify_dispenser(
-                        res_lock,
-                        res_cvar,
-                        ContainerMessage::new(
-                            amounte_consumed,
-                            ContainerMessageType::ResourseRequest,
-                        ),
-                    );
-                    if res == FINISH_FLAG {
-                        println!("[water container] - finishing ");
-                        break;
+                let container_message_response: ContainerMessage;
+                match res.get_type() {
+                    ContainerMessageType::ResourseRequest => {
+                        println!(
+                            "[water container] - attempting to consume amount {}",
+                            res.get_amount()
+                        );
+                        if let Ok(amounte_consumed) = self.consume(res.get_amount()) {
+                            container_message_response = ContainerMessage::new(
+                                amounte_consumed,
+                                ContainerMessageType::ResourseRequest,
+                            )
+                        } else {
+                            // consume fails --> kill the thread
+                            container_message_response = ContainerMessage::new(
+                                FINISH_FLAG,
+                                ContainerMessageType::KillRequest,
+                            )
+                        }
                     }
-                    bussy_sem.release();
-                    println!("[water container] - released sem")
+                    ContainerMessageType::DataRequest => {
+                        container_message_response =
+                            ContainerMessage::new(self.capacity, ContainerMessageType::DataRequest)
+                    }
+                    ContainerMessageType::KillRequest => {
+                        println!("[water container] - dispenser sending FINISHING FLAG",);
+                        container_message_response =
+                            ContainerMessage::new(FINISH_FLAG, ContainerMessageType::KillRequest)
+                    }
                 }
+
+                let (res_lock, res_cvar) = &*response_monitor;
+                self.notify_dispenser(res_lock, res_cvar, container_message_response);
+                if matches!(res.get_type(), ContainerMessageType::KillRequest) {
+                    println!("[milk container] - finishing ");
+                    break;
+                }
+                bussy_sem.release();
+                println!("[water container] - released sem")
             }
         }
     }
@@ -131,7 +138,12 @@ impl Container for WaterContainer {
 
 #[cfg(test)]
 mod water_container_test {
-    use crate::containers::water_container::WaterContainer;
+    use std::sync::{Arc, Condvar, Mutex};
+
+    use crate::{
+        containers::water_container::{WaterContainer, CAPACITY, FINISH_FLAG},
+        helpers::container_message::{ContainerMessage, ContainerMessageType},
+    };
 
     #[test]
     fn it_should_init_with_0() {
@@ -140,7 +152,16 @@ mod water_container_test {
     }
 
     #[test]
-    fn it_should_refill_when_amount_is_bigger_than_capacity() {
+    fn it_should_send_0_when_amount_is_bigger_than_capacity() {
+        let mut water_container = WaterContainer::new();
+        water_container.capacity = 9;
+        let amount = 10;
+        let res = water_container.consume(amount).unwrap();
+        assert_eq!(res, 0)
+    }
+
+    #[test]
+    fn it_should_refill_when_capacity_is_0() {
         let mut water_container = WaterContainer::new();
         let amount = 10;
         water_container.consume(amount).unwrap();
@@ -163,5 +184,48 @@ mod water_container_test {
         let amount = -1;
         let res = water_container.consume(amount).unwrap();
         assert_eq!(res, finish_flag)
+    }
+
+    #[test]
+    fn it_should_wait_for_resourse_is_ready_and_return_message() {
+        let mut milk_container: WaterContainer = WaterContainer::new();
+        let mut resourse = ContainerMessage::new(10, ContainerMessageType::ResourseRequest);
+        resourse.ready_to_read();
+
+        let monitor = Arc::new((Mutex::new(resourse), Condvar::new()));
+        let (lock, cvar) = &*monitor;
+
+        let result: ContainerMessage = milk_container.wait_dispenser(lock, cvar).unwrap();
+
+        assert_eq!(result.get_amount(), 10);
+    }
+    #[test]
+    fn it_should_wait_for_data_request_is_ready_and_return_resourse() {
+        let mut cacao_container = WaterContainer::new();
+        let mut resourse = ContainerMessage::new(0, ContainerMessageType::DataRequest);
+        resourse.ready_to_read();
+
+        let monitor: Arc<(Mutex<ContainerMessage>, Condvar)> =
+            Arc::new((Mutex::new(resourse), Condvar::new()));
+        let (lock, cvar) = &*monitor;
+
+        let result = cacao_container.wait_dispenser(lock, cvar).unwrap();
+
+        assert_eq!(result.get_amount(), 0);
+    }
+
+    #[test]
+    fn it_should_wait_for_kill_request_is_ready_and_return_resourse() {
+        let mut cacao_container = WaterContainer::new();
+        let mut resourse = ContainerMessage::new(FINISH_FLAG, ContainerMessageType::KillRequest);
+        resourse.ready_to_read();
+
+        let monitor: Arc<(Mutex<ContainerMessage>, Condvar)> =
+            Arc::new((Mutex::new(resourse), Condvar::new()));
+        let (lock, cvar) = &*monitor;
+
+        let result = cacao_container.wait_dispenser(lock, cvar).unwrap();
+
+        assert_eq!(result.get_amount(), FINISH_FLAG);
     }
 }

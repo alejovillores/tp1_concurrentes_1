@@ -41,7 +41,7 @@ impl MilkContainer {
                 return Ok(result);
             }
         };
-        Err("[error] - cacao container  monitor failed".to_string())
+        Err("[error] - milk container  monitor failed".to_string())
     }
 
     // Notify dispenser about new resourse avaliable
@@ -86,14 +86,13 @@ impl Container for MilkContainer {
             let (lock, cvar) = &*request_monitor;
             println!("[milk container] - waiting for request");
             if let Ok(res) = self.wait_dispenser(lock, cvar) {
-                println!(
-                    "[milk container] - attempting to consume amount {}",
-                    res.get_amount()
-                );
-
                 let container_message_response: ContainerMessage;
                 match res.get_type() {
                     ContainerMessageType::ResourseRequest => {
+                        println!(
+                            "[milk container] - attempting to consume amount {}",
+                            res.get_amount()
+                        );
                         if let Ok(amounte_consumed) = self.consume(res.get_amount()) {
                             container_message_response = ContainerMessage::new(
                                 amounte_consumed,
