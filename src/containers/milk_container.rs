@@ -64,7 +64,7 @@ impl MilkContainer {
     }
 
     fn check_capacity(&self) -> bool {
-        let min_capacity = (CAPACITY as f32) * (0.2 as f32);
+        let min_capacity = (CAPACITY as f32) * (0.2_f32);
         self.capacity as f32 <= min_capacity
     }
 }

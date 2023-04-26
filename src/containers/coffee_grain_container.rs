@@ -78,7 +78,7 @@ impl CoffeeGrainContainer {
     }
 
     fn check_capacity(&self) -> bool {
-        let min_capacity = (CAPACITY as f32) * (0.2 as f32);
+        let min_capacity = (CAPACITY as f32) * (0.2_f32);
         self.capacity as f32 <= min_capacity
     }
 }
@@ -93,29 +93,26 @@ impl Container for CoffeeGrainContainer {
         loop {
             let (lock, cvar) = &*request_monitor;
             if let Ok(res) = self.wait_refill(lock, cvar) {
-                let container_message_response: ContainerMessage;
-                match res.get_type() {
+                let container_message_response: ContainerMessage = match res.get_type() {
                     ContainerMessageType::ResourseRequest => {
                         println!(
                             "[coffee grain container] - attempting to consume amount {}",
                             res.get_amount()
                         );
                         let amounte_consumed = self.refill(res.get_amount());
-                        container_message_response = ContainerMessage::new(
+                        ContainerMessage::new(
                             amounte_consumed,
                             ContainerMessageType::ResourseRequest,
                         )
                     }
                     ContainerMessageType::DataRequest => {
-                        container_message_response =
-                            ContainerMessage::new(self.capacity, ContainerMessageType::DataRequest)
+                        ContainerMessage::new(self.capacity, ContainerMessageType::DataRequest)
                     }
                     ContainerMessageType::KillRequest => {
                         println!("[coffee grain container] - dispenser sending FINISHING FLAG",);
-                        container_message_response =
-                            ContainerMessage::new(FINISH_FLAG, ContainerMessageType::KillRequest)
+                        ContainerMessage::new(FINISH_FLAG, ContainerMessageType::KillRequest)
                     }
-                }
+                };
                 if self.check_capacity() {
                     println!("[coffee grain container] - CAPACITY LOWER THAN 20% ")
                 }

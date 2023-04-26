@@ -1,11 +1,8 @@
 use std_semaphore::Semaphore;
 
-use super::{coffee_grain_container::CoffeeGrainContainer, container::Container};
+use super::container::Container;
 use crate::helpers::container_message::{ContainerMessage, ContainerMessageType};
-use std::{
-    sync::{Arc, Condvar, Mutex},
-    thread::{self, JoinHandle},
-};
+use std::sync::{Arc, Condvar, Mutex};
 
 const CAPACITY: i32 = 100;
 const FINISH_FLAG: i32 = -1;

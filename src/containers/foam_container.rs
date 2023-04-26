@@ -182,7 +182,7 @@ mod coffecontainer_test {
     use std::sync::{Arc, Condvar, Mutex};
 
     use crate::{
-        containers::foam_container::{self, FoamContainer, CAPACITY},
+        containers::foam_container::{FoamContainer, CAPACITY},
         helpers::container_message::{ContainerMessage, ContainerMessageType},
     };
     use std_semaphore::Semaphore;

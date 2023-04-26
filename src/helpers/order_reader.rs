@@ -12,6 +12,7 @@ struct OrderJSON {
     water_amount: i32,
     cacao_amount: i32,
     milk_amount: i32,
+    foam_amount: i32,
 }
 
 impl OrderJSON {
@@ -21,6 +22,7 @@ impl OrderJSON {
             self.water_amount,
             self.cacao_amount,
             self.milk_amount,
+            self.foam_amount,
         )
     }
 }
@@ -131,6 +133,16 @@ mod order_reader_test {
         let result = o_reader.make_orders(res).unwrap();
 
         assert_eq!(result.get(0).unwrap().milk_amount, 3)
+    }
+
+    #[test]
+    fn it_should_read_order_with_1_foam_amount() {
+        let o_reader = OrderReader::new("res/orders.test1.json".to_owned());
+
+        let res = o_reader.read_file().unwrap();
+        let result = o_reader.make_orders(res).unwrap();
+
+        assert_eq!(result.get(0).unwrap().foam_amount, 1)
     }
 
     #[test]

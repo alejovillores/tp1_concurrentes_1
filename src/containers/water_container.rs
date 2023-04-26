@@ -141,7 +141,7 @@ mod water_container_test {
     use std::sync::{Arc, Condvar, Mutex};
 
     use crate::{
-        containers::water_container::{WaterContainer, CAPACITY, FINISH_FLAG},
+        containers::water_container::{WaterContainer, FINISH_FLAG},
         helpers::container_message::{ContainerMessage, ContainerMessageType},
     };
 

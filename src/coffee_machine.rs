@@ -10,7 +10,8 @@ use crate::{
     containers::{
         cacao_container::CacaoContainer, coffee_container::CoffeContainer,
         coffee_grain_container::CoffeeGrainContainer, container::Container,
-        milk_container::MilkContainer, water_container::WaterContainer,
+        foam_container::FoamContainer, milk_container::MilkContainer,
+        water_container::WaterContainer,
     },
     dispensers::dispenser::Dispenser,
     helpers::{
@@ -122,7 +123,6 @@ impl CoffeMachine {
                         water_container.start(request_monitor, response_monitor, sem_clone);
                     }));
                 }
-                Ingredients::Foam => {}
                 Ingredients::Cacao => {
                     containers.push(thread::spawn(move || {
                         let mut water_container = CacaoContainer::new();
@@ -133,6 +133,28 @@ impl CoffeMachine {
                     containers.push(thread::spawn(move || {
                         let mut water_container = WaterContainer::new();
                         water_container.start(request_monitor, response_monitor, sem_clone);
+                    }));
+                }
+                Ingredients::Foam => {
+                    let req = self
+                        .req_monitors
+                        .get(&Ingredients::Milk)
+                        .expect("MILK REQ MONITOR NOT FOUND")
+                        .to_owned();
+                    let res = self
+                        .res_monitors
+                        .get(&Ingredients::CoffeGrain)
+                        .expect("MILK RES MONITOR NOT FOUND")
+                        .to_owned();
+                    let s = self
+                        .bussy_sem
+                        .get(&Ingredients::CoffeGrain)
+                        .expect("MILK SEMAPHORE NOT FOUND")
+                        .to_owned();
+                    containers.push(thread::spawn(move || {
+                        let mut foam_container =
+                            FoamContainer::new(req.clone(), res.clone(), s.clone());
+                        foam_container.start(request_monitor, response_monitor, sem_clone);
                     }));
                 }
             }
@@ -268,7 +290,7 @@ mod coffemachine_test {
     #[test]
     fn it_should_signal_coffe_dispenser() {
         let coffemachine: CoffeMachine = CoffeMachine::new("text".to_string(), 2);
-        let new_ticket = Order::new(10, 10, 10, 10);
+        let new_ticket = Order::new(10, 10, 10, 10, 0);
         let q = OrderManager::new();
         let monitor = Arc::new((Mutex::new(q), Condvar::new()));
         let (order_lock, cvar) = &*monitor;

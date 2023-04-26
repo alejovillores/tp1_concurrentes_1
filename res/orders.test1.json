@@ -3,6 +3,7 @@
         "coffee_amount":5,
         "water_amount": 8,
         "cacao_amount": 2,
-        "milk_amount":3
+        "milk_amount":3,
+        "foam_amount":1
     }
 ]

@@ -6,12 +6,19 @@ pub struct Order {
     water_amount: i32,
     cacao_amount: i32,
     milk_amount: i32,
+    foam_amount: i32,
     not_ready: bool,
     last_order: bool,
 }
 
 impl Order {
-    pub fn new(coffee_amount: i32, water_amount: i32, cacao_amount: i32, milk_amount: i32) -> Self {
+    pub fn new(
+        coffee_amount: i32,
+        water_amount: i32,
+        cacao_amount: i32,
+        milk_amount: i32,
+        foam_amount: i32,
+    ) -> Self {
         let not_ready = true;
         let last_order = false;
 
@@ -20,6 +27,7 @@ impl Order {
             water_amount,
             cacao_amount,
             milk_amount,
+            foam_amount,
             not_ready,
             last_order,
         }
@@ -51,6 +59,7 @@ impl Order {
             Ingredients::Cacao => self.cacao_amount,
             Ingredients::Water => self.water_amount,
             Ingredients::Milk => self.milk_amount,
+            Ingredients::Foam => self.foam_amount,
             _ => 0,
         }
     }

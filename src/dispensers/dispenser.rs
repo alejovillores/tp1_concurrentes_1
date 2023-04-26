@@ -238,7 +238,7 @@ mod dispenser_test {
     fn it_should_return_10_when_wait_new_ticket_is_ready() {
         let dispenser = Dispenser::new(0);
         let mut q = OrderManager::new();
-        q.add(Order::new(10, 10, 10, 10));
+        q.add(Order::new(10, 10, 10, 10, 0));
 
         let ticket = Arc::new((Mutex::new(q), Condvar::new()));
         let (order_lock, cvar) = &*ticket;
