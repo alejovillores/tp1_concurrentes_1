@@ -31,14 +31,14 @@ impl WaterContainer {
 
     fn consume(&mut self, amount: i32) -> Result<i32, String> {
         if (self.capacity < amount) && (self.capacity > NO_MORE) {
-            return Ok(NO_MORE);
+            Ok(NO_MORE)
         } else if self.capacity == NO_MORE {
             println!("[water container] - refilling water ");
             self.refill();
             return self.consume(amount);
         } else {
             self.capacity -= amount;
-            return Ok(amount);
+            Ok(amount)
         }
     }
 

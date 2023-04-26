@@ -31,17 +31,17 @@ impl CoffeContainer {
         // ask
         let req_resourse = ContainerMessage::new(CAPACITY, ContainerMessageType::ResourseRequest);
         let (req_lock, req_cvar) = &*refill_req_monitor;
-        self.notify_container(req_lock, req_cvar, req_resourse);
+        self.notify(req_lock, req_cvar, req_resourse);
 
         // wait
         let (res_lock, res_cvar) = &*refill_res_monitor;
-        if let Ok(amount) = self.wait_container_coffee(res_lock, res_cvar) {
-            println!("[coffee container] - starting refill");
-            if amount == FINISH_FLAG {
+        if let Ok(message) = self.wait(res_lock, res_cvar) {
+            if message.get_amount() == FINISH_FLAG {
                 println!("[coffe container] - out of coffe");
                 self.capacity = FINISH_FLAG
             } else {
-                self.capacity += amount;
+                println!("[coffee container] - refilling ");
+                self.capacity += message.get_amount();
                 println!("[coffee container] - refill complete");
             }
         }
@@ -67,103 +67,29 @@ impl CoffeContainer {
             return Ok(NO_MORE);
         }
 
-        if amount.is_negative() {
-            self.notify_end_message(refill_req_monitor);
-            return Ok(FINISH_FLAG);
-        }
-
         Err("[error] - could not consume".to_string())
     }
 
     // Waits for dispenser to send new coffee request
-    fn wait_dispenser_coffee(
+    fn wait(
         &mut self,
         lock: &Mutex<ContainerMessage>,
         cvar: &Condvar,
-    ) -> Result<i32, String> {
+    ) -> Result<ContainerMessage, String> {
         if let Ok(guard) = lock.lock() {
-            if let Ok(mut resourse) = cvar.wait_while(guard, |status| status.is_not_ready()) {
-                let coffe_amount = resourse.get_amount();
-
-                if coffe_amount == FINISH_FLAG {
-                    println!("[coffee container] - dispenser asking sending FINISHING FLAG",);
-                } else {
-                    println!(
-                        "[coffee container] - dispenser asking for {} units of coffee",
-                        coffe_amount
-                    );
-                }
-                resourse.read();
-                return Ok(coffe_amount);
+            if let Ok(mut message) = cvar.wait_while(guard, |status| status.is_not_ready()) {
+                message.read();
+                let result = ContainerMessage::new(message.get_amount(), message.get_type());
+                return Ok(result);
             }
         };
-        Err("[error] - coffee container  monitor failed".to_string())
+        Err("[error] - milk container  monitor failed".to_string())
     }
 
-    // Notify dispenser about new resourse avaliable
-    fn notify_dispenser(
-        &mut self,
-        lock: &Mutex<ContainerMessage>,
-        cvar: &Condvar,
-        res: ContainerMessage,
-    ) {
+    // Notify container o dispenser about new resourse avaliable
+    fn notify(&mut self, lock: &Mutex<ContainerMessage>, cvar: &Condvar, res: ContainerMessage) {
         if let Ok(mut resourse) = lock.lock() {
             *resourse = res;
-            resourse.ready_to_read();
-            if resourse.get_amount() == FINISH_FLAG {
-                println!("[coffee container] - notifying dispenser FINISHING FLAG ",);
-            } else {
-                println!(
-                    "[coffee container] - sending {} units to dispenser",
-                    resourse.get_amount(),
-                );
-            }
-            cvar.notify_all();
-        }
-    }
-
-    // Waits for grain contaniner to send new coffee response
-    fn wait_container_coffee(
-        &mut self,
-        lock: &Mutex<ContainerMessage>,
-        cvar: &Condvar,
-    ) -> Result<i32, String> {
-        if let Ok(guard) = lock.lock() {
-            if let Ok(mut resourse) = cvar.wait_while(guard, |status| status.is_not_ready()) {
-                let coffe_amount = resourse.get_amount();
-
-                if coffe_amount == FINISH_FLAG {
-                    println!("[coffee container] - received FINISH FLAG units from coffee grain container");
-                } else {
-                    println!(
-                        "[coffee container] - received {} units from coffee grain container",
-                        coffe_amount
-                    );
-                }
-
-                resourse.read();
-                return Ok(coffe_amount);
-            }
-        };
-        Err(
-            "[error] - coffee container  monitor failed waiting for grain container response"
-                .to_string(),
-        )
-    }
-
-    // Notify container about new resourse request
-    fn notify_container(
-        &mut self,
-        lock: &Mutex<ContainerMessage>,
-        cvar: &Condvar,
-        res: ContainerMessage,
-    ) {
-        if let Ok(mut resourse) = lock.lock() {
-            *resourse = res;
-            println!(
-                "[coffee container] - sending request of {} units to coffee grain container",
-                resourse.get_amount()
-            );
             resourse.ready_to_read();
             cvar.notify_all();
         }
@@ -186,7 +112,7 @@ impl CoffeContainer {
         // send
         let req_resourse = ContainerMessage::new(FINISH_FLAG, ContainerMessageType::KillRequest);
         let (req_lock, req_cvar) = &*refill_req_monitor;
-        self.notify_container(req_lock, req_cvar, req_resourse);
+        self.notify(req_lock, req_cvar, req_resourse);
     }
 
     // Kill child thread container
@@ -225,31 +151,54 @@ impl Container for CoffeContainer {
         loop {
             let (lock, cvar) = &*dispenser_req_monitor;
             println!("[coffee container] - waiting for request");
-            if let Ok(res) = self.wait_dispenser_coffee(lock, cvar) {
-                println!("[coffee container] - attempting to consume amount {}", res);
-
-                if let Ok(amounte_consumed) =
-                    self.consume(refill_req_monitor.clone(), refill_res_monitor.clone(), res)
-                {
-                    let (res_lock, res_cvar) = &*dispenser_res_monitor;
-                    self.notify_dispenser(
-                        res_lock,
-                        res_cvar,
-                        ContainerMessage::new(
-                            amounte_consumed,
-                            ContainerMessageType::ResourseRequest,
-                        ),
-                    );
-                    if res == FINISH_FLAG {
-                        self.kill_container(grain_container);
-                        println!("[coffee container] - finishing ");
-                        break;
+            if let Ok(res) = self.wait(lock, cvar) {
+                let container_message_response: ContainerMessage;
+                match res.get_type() {
+                    ContainerMessageType::ResourseRequest => {
+                        println!(
+                            "[coffee container] - attempting to consume amount {}",
+                            res.get_amount()
+                        );
+                        if let Ok(amounte_consumed) = self.consume(
+                            refill_req_monitor.clone(),
+                            refill_res_monitor.clone(),
+                            res.get_amount(),
+                        ) {
+                            container_message_response = ContainerMessage::new(
+                                amounte_consumed,
+                                ContainerMessageType::ResourseRequest,
+                            )
+                        } else {
+                            // consume fails --> kill the thread
+                            container_message_response = ContainerMessage::new(
+                                FINISH_FLAG,
+                                ContainerMessageType::KillRequest,
+                            )
+                        }
                     }
-                    bussy_sem.release();
-                    println!("[coffe container] - released sem")
+                    ContainerMessageType::DataRequest => {
+                        container_message_response =
+                            ContainerMessage::new(self.capacity, ContainerMessageType::DataRequest)
+                    }
+                    ContainerMessageType::KillRequest => {
+                        println!("[coffee container] - dispenser sending FINISHING FLAG",);
+                        self.notify_end_message(refill_req_monitor.clone());
+                        container_message_response =
+                            ContainerMessage::new(FINISH_FLAG, ContainerMessageType::KillRequest)
+                    }
                 }
+                let (res_lock, res_cvar) = &*dispenser_res_monitor;
+                self.notify(res_lock, res_cvar, container_message_response);
+
+                if matches!(res.get_type(), ContainerMessageType::KillRequest) {
+                    println!("[milk container] - finishing ");
+                    break;
+                }
+                bussy_sem.release();
+                println!("[milk container] - released sem");
             }
         }
+        self.kill_container(grain_container);
     }
 }
 
@@ -303,8 +252,8 @@ mod coffecontainer_test {
         let monitor = Arc::new((Mutex::new(res), Condvar::new()));
         let (lock, cvar) = &*monitor;
 
-        match coffee_container.wait_dispenser_coffee(lock, cvar) {
-            Ok(_) => assert!(true),
+        match coffee_container.wait(lock, cvar) {
+            Ok(r) => assert_eq!(r.get_amount(), 10),
             Err(_) => assert!(false),
         }
     }
