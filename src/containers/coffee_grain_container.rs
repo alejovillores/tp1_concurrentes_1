@@ -6,7 +6,8 @@ use crate::helpers::container_message::{ContainerMessage, ContainerMessageType};
 
 use super::container::Container;
 
-const EMPTY: i32 = -1;
+const FINISH_FLAG: i32 = -1;
+const NO_MORE: i32 = 0;
 const CAPACITY: i32 = 2500;
 
 pub struct CoffeeGrainContainer {
@@ -28,15 +29,10 @@ impl CoffeeGrainContainer {
             return amount;
         };
 
-        if self.capacity == 0 {
+        if self.capacity == NO_MORE {
             println!("[coffee grain container] - no more coffee grain sending FINISHING FLAG");
-            return EMPTY;
+            return FINISH_FLAG;
         };
-
-        if amount.is_negative() {
-            println!("[coffee grain container] - FINISHING FLAG");
-            return EMPTY;
-        }
 
         if self.capacity <= amount {
             let result = self.capacity;
@@ -44,28 +40,22 @@ impl CoffeeGrainContainer {
             return result;
         };
 
-        EMPTY
+        FINISH_FLAG
     }
 
     fn wait_refill(
         &mut self,
         lock: &Mutex<ContainerMessage>,
         cvar: &Condvar,
-    ) -> Result<i32, String> {
+    ) -> Result<ContainerMessage, String> {
         if let Ok(guard) = lock.lock() {
-            if let Ok(mut resourse) = cvar.wait_while(guard, |status| status.is_not_ready()) {
-                let coffee_amount = resourse.get_amount();
-
-                println!(
-                    "[coffee grain container] - coffee container asking for amount {}",
-                    coffee_amount
-                );
-                resourse.read();
-                return Ok(coffee_amount);
-            };
+            if let Ok(mut message) = cvar.wait_while(guard, |status| status.is_not_ready()) {
+                message.read();
+                let result = ContainerMessage::new(message.get_amount(), message.get_type());
+                return Ok(result);
+            }
         };
-
-        Err("[error] - coffee container  monitor failed".to_string())
+        Err("[error] - coffee grain container  monitor failed".to_string())
     }
 
     fn signal_refill(
@@ -98,26 +88,52 @@ impl Container for CoffeeGrainContainer {
         &mut self,
         request_monitor: Arc<(Mutex<ContainerMessage>, Condvar)>,
         response_monitor: Arc<(Mutex<ContainerMessage>, Condvar)>,
-        _bussy_sem: Arc<Semaphore>,
+        bussy_sem: Arc<Semaphore>,
     ) {
         loop {
             let (lock, cvar) = &*request_monitor;
-            if let Ok(amount) = self.wait_refill(lock, cvar) {
-                let refill_amount = self.refill(amount);
+            if let Ok(res) = self.wait_refill(lock, cvar) {
+                let container_message_response: ContainerMessage;
+                match res.get_type() {
+                    ContainerMessageType::ResourseRequest => {
+                        println!(
+                            "[coffee grain container] - attempting to consume amount {}",
+                            res.get_amount()
+                        );
+                        let amounte_consumed = self.refill(res.get_amount());
+                        container_message_response = ContainerMessage::new(
+                            amounte_consumed,
+                            ContainerMessageType::ResourseRequest,
+                        )
+                    }
+                    ContainerMessageType::DataRequest => {
+                        container_message_response =
+                            ContainerMessage::new(self.capacity, ContainerMessageType::DataRequest)
+                    }
+                    ContainerMessageType::KillRequest => {
+                        println!("[coffee grain container] - dispenser sending FINISHING FLAG",);
+                        container_message_response =
+                            ContainerMessage::new(FINISH_FLAG, ContainerMessageType::KillRequest)
+                    }
+                }
                 if self.check_capacity() {
                     println!("[coffee grain container] - CAPACITY LOWER THAN 20% ")
                 }
-                let resourse =
-                    ContainerMessage::new(refill_amount, ContainerMessageType::ResourseRequest);
 
                 let (res_lock, res_cvar) = &*response_monitor;
-                if self.signal_refill(res_lock, res_cvar, resourse).is_err() {
+                if self
+                    .signal_refill(res_lock, res_cvar, container_message_response)
+                    .is_err()
+                {
                     println!("[error] - error in coffee grain container")
                 }
 
-                if refill_amount == EMPTY {
+                if matches!(res.get_type(), ContainerMessageType::KillRequest) {
+                    println!("[coffee grain container] - finishing ");
                     break;
-                };
+                }
+                bussy_sem.release();
+                println!("[coffee grain container] - released sem");
             }
         }
     }

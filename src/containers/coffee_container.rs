@@ -52,10 +52,12 @@ impl CoffeContainer {
         refill_req_monitor: Arc<(Mutex<ContainerMessage>, Condvar)>,
         refill_res_monitor: Arc<(Mutex<ContainerMessage>, Condvar)>,
         amount: i32,
+        sem: Arc<Semaphore>,
     ) -> Result<i32, String> {
         if self.capacity == NO_MORE {
+            sem.acquire();
             self.refill(refill_req_monitor.clone(), refill_res_monitor.clone());
-            return self.consume(refill_req_monitor, refill_res_monitor, amount);
+            return self.consume(refill_req_monitor, refill_res_monitor, amount, sem);
         }
 
         if self.capacity >= amount && amount.is_positive() {
@@ -144,9 +146,12 @@ impl Container for CoffeContainer {
             )),
             Condvar::new(),
         ));
-        let sem = Arc::new(Semaphore::new(0));
-        let grain_container =
-            self.init_container(refill_req_monitor.clone(), refill_res_monitor.clone(), sem);
+        let sem = Arc::new(Semaphore::new(1));
+        let grain_container = self.init_container(
+            refill_req_monitor.clone(),
+            refill_res_monitor.clone(),
+            sem.clone(),
+        );
 
         loop {
             let (lock, cvar) = &*dispenser_req_monitor;
@@ -163,6 +168,7 @@ impl Container for CoffeContainer {
                             refill_req_monitor.clone(),
                             refill_res_monitor.clone(),
                             res.get_amount(),
+                            sem.clone(),
                         ) {
                             container_message_response = ContainerMessage::new(
                                 amounte_consumed,
