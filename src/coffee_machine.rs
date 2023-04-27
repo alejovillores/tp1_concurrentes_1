@@ -40,6 +40,7 @@ pub struct CoffeMachine {
     n_dispensers: i32,
     req_monitors: HashMap<Ingredients, Arc<(Mutex<ContainerMessage>, Condvar)>>,
     res_monitors: HashMap<Ingredients, Arc<(Mutex<ContainerMessage>, Condvar)>>,
+    data_mutex: HashMap<Ingredients, i32>,
     bussy_sem: HashMap<Ingredients, Arc<Semaphore>>,
 }
 
@@ -50,17 +51,25 @@ impl CoffeMachine {
         let res_monitors: HashMap<Ingredients, Arc<(Mutex<ContainerMessage>, Condvar)>> =
             HashMap::new();
         let bussy_sem: HashMap<Ingredients, Arc<Semaphore>> = HashMap::new();
+        let mut data_mutex: HashMap<Ingredients, i32> = HashMap::new();
+        for i in INGREDIENTS.iter().copied() {
+            data_mutex.insert(i, 0);
+        }
 
         Self {
             path,
             n_dispensers,
             req_monitors,
             res_monitors,
+            data_mutex,
             bussy_sem,
         }
     }
 
-    fn init_containers(&mut self) -> Vec<JoinHandle<()>> {
+    fn init_containers(
+        &mut self,
+        mutex: Arc<Mutex<HashMap<Ingredients, i32>>>,
+    ) -> Vec<JoinHandle<()>> {
         let mut containers = Vec::with_capacity(INGREDIENTS.len());
 
         for i in INGREDIENTS.iter().copied() {
@@ -87,7 +96,7 @@ impl CoffeMachine {
             self.req_monitors.insert(i, req_monitor);
             self.res_monitors.insert(i, res_monitor);
             self.bussy_sem.insert(i, sem);
-
+            let d_mutex = mutex.clone();
             match i {
                 Ingredients::Coffee => {
                     let req = self
@@ -105,34 +114,60 @@ impl CoffeMachine {
                         .get(&Ingredients::CoffeGrain)
                         .expect("COFFE GRAIN SEMAPHORE NOT FOUND")
                         .to_owned();
+
                     containers.push(thread::spawn(move || {
                         let mut coffe_container =
                             CoffeContainer::new(req.clone(), res.clone(), s.clone());
-                        coffe_container.start(request_monitor, response_monitor, sem_clone);
+                        coffe_container.start(
+                            request_monitor,
+                            response_monitor,
+                            sem_clone,
+                            d_mutex,
+                        );
                     }));
                 }
                 Ingredients::CoffeGrain => {
                     containers.push(thread::spawn(move || {
                         let mut coffe_container: CoffeeGrainContainer = CoffeeGrainContainer::new();
-                        coffe_container.start(request_monitor, response_monitor, sem_clone);
+                        coffe_container.start(
+                            request_monitor,
+                            response_monitor,
+                            sem_clone,
+                            d_mutex,
+                        );
                     }));
                 }
                 Ingredients::Milk => {
                     containers.push(thread::spawn(move || {
                         let mut water_container: MilkContainer = MilkContainer::new();
-                        water_container.start(request_monitor, response_monitor, sem_clone);
+                        water_container.start(
+                            request_monitor,
+                            response_monitor,
+                            sem_clone,
+                            d_mutex,
+                        );
                     }));
                 }
                 Ingredients::Cacao => {
                     containers.push(thread::spawn(move || {
                         let mut water_container = CacaoContainer::new();
-                        water_container.start(request_monitor, response_monitor, sem_clone);
+                        water_container.start(
+                            request_monitor,
+                            response_monitor,
+                            sem_clone,
+                            d_mutex,
+                        );
                     }));
                 }
                 Ingredients::Water => {
                     containers.push(thread::spawn(move || {
                         let mut water_container = WaterContainer::new();
-                        water_container.start(request_monitor, response_monitor, sem_clone);
+                        water_container.start(
+                            request_monitor,
+                            response_monitor,
+                            sem_clone,
+                            d_mutex,
+                        );
                     }));
                 }
                 Ingredients::Foam => {
@@ -154,7 +189,7 @@ impl CoffeMachine {
                     containers.push(thread::spawn(move || {
                         let mut foam_container =
                             FoamContainer::new(req.clone(), res.clone(), s.clone());
-                        foam_container.start(request_monitor, response_monitor, sem_clone);
+                        foam_container.start(request_monitor, response_monitor, sem_clone, d_mutex);
                     }));
                 }
             }
@@ -204,10 +239,11 @@ impl CoffeMachine {
         &mut self,
         dispensers: &mut Vec<JoinHandle<()>>,
         order_lock: Arc<(Mutex<OrderManager>, Condvar)>,
+        d_mutex: Arc<Mutex<HashMap<Ingredients, i32>>>,
     ) {
         dispensers.push(thread::spawn(move || {
             let dispenser = StatsPresenter::new(TIME);
-            dispenser.start(order_lock);
+            dispenser.start(order_lock, d_mutex);
         }));
     }
 
@@ -248,13 +284,14 @@ impl CoffeMachine {
 
     pub fn start(&mut self) {
         let order_manager = Arc::new((Mutex::new(OrderManager::new()), Condvar::new()));
-        let _containers = self.init_containers();
+        let d_mutex = Arc::new(Mutex::new(self.data_mutex.clone()));
+        let _containers = self.init_containers(d_mutex.clone());
         let mut dispensers = self.init_dispensers(order_manager.clone());
         let mut order_reader = OrderReader::new(self.path.clone());
         order_reader
             .read_json()
             .expect("[cofee machine] - Fail reading json file");
-        self.init_stat_presenter(&mut dispensers, order_manager.clone());
+        self.init_stat_presenter(&mut dispensers, order_manager.clone(), d_mutex);
 
         let (order_lock, cvar) = &*order_manager;
         loop {

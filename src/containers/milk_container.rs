@@ -1,6 +1,12 @@
-use std::sync::{Condvar, Mutex};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Condvar, Mutex},
+};
 
-use crate::helpers::container_message::{ContainerMessage, ContainerMessageType};
+use crate::helpers::{
+    container_message::{ContainerMessage, ContainerMessageType},
+    ingredients::Ingredients,
+};
 
 use super::container::Container;
 
@@ -67,20 +73,27 @@ impl MilkContainer {
         let min_capacity = (CAPACITY as f32) * (0.2_f32);
         self.capacity as f32 <= min_capacity
     }
+
+    fn save_status(&self, d_mutex: Arc<Mutex<HashMap<Ingredients, i32>>>) {
+        if let Ok(mut guard) = d_mutex.lock() {
+            guard.insert(Ingredients::Milk, self.capacity);
+        }
+    }
 }
 
 impl Container for MilkContainer {
     fn start(
         &mut self,
-        request_monitor: std::sync::Arc<(
-            std::sync::Mutex<crate::helpers::container_message::ContainerMessage>,
-            std::sync::Condvar,
+        request_monitor: Arc<(
+            Mutex<crate::helpers::container_message::ContainerMessage>,
+            Condvar,
         )>,
-        response_monitor: std::sync::Arc<(
-            std::sync::Mutex<crate::helpers::container_message::ContainerMessage>,
-            std::sync::Condvar,
+        response_monitor: Arc<(
+            Mutex<crate::helpers::container_message::ContainerMessage>,
+            Condvar,
         )>,
-        bussy_sem: std::sync::Arc<std_semaphore::Semaphore>,
+        bussy_sem: Arc<std_semaphore::Semaphore>,
+        d_mutex: Arc<Mutex<HashMap<Ingredients, i32>>>,
     ) {
         loop {
             let (lock, cvar) = &*request_monitor;
@@ -106,10 +119,6 @@ impl Container for MilkContainer {
                             )
                         }
                     }
-                    ContainerMessageType::DataRequest => {
-                        container_message_response =
-                            ContainerMessage::new(self.capacity, ContainerMessageType::DataRequest)
-                    }
                     ContainerMessageType::KillRequest => {
                         println!("[milk container] - dispenser sending FINISHING FLAG",);
                         container_message_response =
@@ -125,6 +134,7 @@ impl Container for MilkContainer {
                     println!("[milk container] - finishing ");
                     break;
                 }
+                self.save_status(d_mutex.clone());
                 bussy_sem.release();
                 println!("[milk container] - released sem");
             }
@@ -184,20 +194,6 @@ mod milk_container_test {
         let result: ContainerMessage = milk_container.wait_dispenser(lock, cvar).unwrap();
 
         assert_eq!(result.get_amount(), 10);
-    }
-    #[test]
-    fn it_should_wait_for_data_request_is_ready_and_return_resourse() {
-        let mut cacao_container = MilkContainer::new();
-        let mut resourse = ContainerMessage::new(0, ContainerMessageType::DataRequest);
-        resourse.ready_to_read();
-
-        let monitor: Arc<(Mutex<ContainerMessage>, Condvar)> =
-            Arc::new((Mutex::new(resourse), Condvar::new()));
-        let (lock, cvar) = &*monitor;
-
-        let result = cacao_container.wait_dispenser(lock, cvar).unwrap();
-
-        assert_eq!(result.get_amount(), 0);
     }
 
     #[test]

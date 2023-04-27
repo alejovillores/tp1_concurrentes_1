@@ -1,7 +1,13 @@
-use std::sync::{Condvar, Mutex};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Condvar, Mutex},
+};
 
 use super::container::Container;
-use crate::helpers::container_message::{ContainerMessage, ContainerMessageType};
+use crate::helpers::{
+    container_message::{ContainerMessage, ContainerMessageType},
+    ingredients::Ingredients,
+};
 
 const N: i32 = 1000;
 const FINISH_FLAG: i32 = -1;
@@ -68,6 +74,12 @@ impl CacaoContainer {
         }
     }
 
+    fn save_status(&self, d_mutex: Arc<Mutex<HashMap<Ingredients, i32>>>) {
+        if let Ok(mut guard) = d_mutex.lock() {
+            guard.insert(Ingredients::Cacao, self.capacity);
+        }
+    }
+
     fn check_capacity(&self) -> bool {
         let min_capacity = (N as f32) * (0.2_f32);
         self.capacity as f32 <= min_capacity
@@ -77,9 +89,10 @@ impl CacaoContainer {
 impl Container for CacaoContainer {
     fn start(
         &mut self,
-        request_monitor: std::sync::Arc<(std::sync::Mutex<ContainerMessage>, std::sync::Condvar)>,
-        response_monitor: std::sync::Arc<(std::sync::Mutex<ContainerMessage>, std::sync::Condvar)>,
-        bussy_sem: std::sync::Arc<std_semaphore::Semaphore>,
+        request_monitor: Arc<(Mutex<ContainerMessage>, std::sync::Condvar)>,
+        response_monitor: Arc<(Mutex<ContainerMessage>, Condvar)>,
+        bussy_sem: Arc<std_semaphore::Semaphore>,
+        d_mutex: Arc<Mutex<HashMap<Ingredients, i32>>>,
     ) {
         loop {
             let (lock, cvar) = &*request_monitor;
@@ -102,10 +115,6 @@ impl Container for CacaoContainer {
                             )
                         }
                     }
-                    ContainerMessageType::DataRequest => {
-                        container_message_response =
-                            ContainerMessage::new(self.capacity, ContainerMessageType::DataRequest)
-                    }
                     ContainerMessageType::KillRequest => {
                         println!("[cacao container] - dispenser sending FINISHING FLAG",);
                         container_message_response =
@@ -123,6 +132,8 @@ impl Container for CacaoContainer {
                     println!("[cacao container] - finishing ");
                     break;
                 }
+
+                self.save_status(d_mutex.clone());
                 bussy_sem.release();
                 println!("[cacao container] - released sem")
             }
@@ -174,21 +185,6 @@ mod cacao_container_test {
         let result = cacao_container.wait_dispenser(lock, cvar).unwrap();
 
         assert_eq!(result.get_amount(), 10);
-    }
-
-    #[test]
-    fn it_should_wait_for_data_request_is_ready_and_return_resourse() {
-        let mut cacao_container = CacaoContainer::new();
-        let mut resourse = ContainerMessage::new(0, ContainerMessageType::DataRequest);
-        resourse.ready_to_read();
-
-        let monitor: Arc<(Mutex<ContainerMessage>, Condvar)> =
-            Arc::new((Mutex::new(resourse), Condvar::new()));
-        let (lock, cvar) = &*monitor;
-
-        let result = cacao_container.wait_dispenser(lock, cvar).unwrap();
-
-        assert_eq!(result.get_amount(), 0);
     }
 
     #[test]

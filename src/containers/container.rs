@@ -1,8 +1,11 @@
 use std_semaphore::Semaphore;
 
-use std::sync::{Arc, Condvar, Mutex};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Condvar, Mutex},
+};
 
-use crate::helpers::container_message::ContainerMessage;
+use crate::helpers::{container_message::ContainerMessage, ingredients::Ingredients};
 
 pub trait Container {
     fn start(
@@ -10,5 +13,6 @@ pub trait Container {
         request_monitor: Arc<(Mutex<ContainerMessage>, Condvar)>,
         response_monitor: Arc<(Mutex<ContainerMessage>, Condvar)>,
         bussy_sem: Arc<Semaphore>,
+        d_mute: Arc<Mutex<HashMap<Ingredients, i32>>>,
     );
 }

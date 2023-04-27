@@ -1,7 +1,6 @@
 #[derive(Debug, Clone, Copy)]
 pub enum ContainerMessageType {
     ResourseRequest,
-    DataRequest,
     KillRequest,
 }
 

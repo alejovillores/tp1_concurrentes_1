@@ -1,8 +1,14 @@
-use std::sync::{Arc, Condvar, Mutex};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Condvar, Mutex},
+};
 
 use std_semaphore::Semaphore;
 
-use crate::helpers::container_message::{ContainerMessage, ContainerMessageType};
+use crate::helpers::{
+    container_message::{ContainerMessage, ContainerMessageType},
+    ingredients::Ingredients,
+};
 
 use super::container::Container;
 
@@ -114,6 +120,12 @@ impl FoamContainer {
         let (req_lock, req_cvar) = &*refill_req_monitor;
         self.notify(req_lock, req_cvar, req_resourse);
     }
+
+    fn save_status(&self, d_mutex: Arc<Mutex<HashMap<Ingredients, i32>>>) {
+        if let Ok(mut guard) = d_mutex.lock() {
+            guard.insert(Ingredients::Foam, self.capacity);
+        }
+    }
 }
 
 impl Container for FoamContainer {
@@ -122,6 +134,7 @@ impl Container for FoamContainer {
         dispenser_req_monitor: Arc<(Mutex<ContainerMessage>, Condvar)>,
         dispenser_res_monitor: Arc<(Mutex<ContainerMessage>, Condvar)>,
         bussy_sem: Arc<Semaphore>,
+        d_mutex: Arc<Mutex<HashMap<Ingredients, i32>>>,
     ) {
         loop {
             let (lock, cvar) = &*dispenser_req_monitor;
@@ -152,10 +165,6 @@ impl Container for FoamContainer {
                             )
                         }
                     }
-                    ContainerMessageType::DataRequest => {
-                        container_message_response =
-                            ContainerMessage::new(self.capacity, ContainerMessageType::DataRequest)
-                    }
                     ContainerMessageType::KillRequest => {
                         println!("[foam container] - dispenser sending FINISHING FLAG",);
                         self.notify_end_message(self.refill_req_monitor.clone());
@@ -170,6 +179,7 @@ impl Container for FoamContainer {
                     println!("[milk container] - finishing ");
                     break;
                 }
+                self.save_status(d_mutex.clone());
                 bussy_sem.release();
                 println!("[milk container] - released sem");
             }
