@@ -24,8 +24,8 @@
     },
     {
         "coffee_amount":10,
-        "water_amount": 0,
-        "cacao_amount": 0,
+        "water_amount": 3,
+        "cacao_amount": 2,
         "milk_amount":5,
         "foam_amount":0
     }

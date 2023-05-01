@@ -90,6 +90,19 @@ Por ejemplo, el contenedor de cafe molido, en caso de no tener cafe, debe enviar
 
 `cargo run <filename.json> <dispensers numbers>`
 
+El formato del archivo json debe seguir la siguiente estructura
+```json
+[
+    {
+        "coffee_amount":<number>,
+        "water_amount": <number>,
+        "cacao_amount": <number>,
+        "milk_amount":<number>,
+        "foam_amount":<number>
+    }
+]
+```
+
 ### _Test de Aceptacion_
 
 Al ejecutar los casos de uso, lo que se hace es ejecutarse en segundo plano con ciertos parametros y se espera a que todos terminen
