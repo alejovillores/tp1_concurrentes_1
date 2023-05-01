@@ -123,7 +123,7 @@ impl Container for WaterContainer {
                         }
                     }
                     ContainerMessageType::KillRequest => {
-                        println!("[water container] - dispenser sending FINISHING FLAG",);
+                        println!("[water container] - receiving FINISHING FLAG",);
                         container_message_response =
                             ContainerMessage::new(FINISH_FLAG, ContainerMessageType::KillRequest)
                     }
@@ -132,7 +132,7 @@ impl Container for WaterContainer {
                 let (res_lock, res_cvar) = &*response_monitor;
                 self.notify_dispenser(res_lock, res_cvar, container_message_response);
                 if matches!(res.get_type(), ContainerMessageType::KillRequest) {
-                    println!("[milk container] - finishing ");
+                    println!("[milk container] - Kill Request - Killing thread");
                     break;
                 }
                 self.save_status(d_mutex.clone());

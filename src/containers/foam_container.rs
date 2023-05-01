@@ -39,7 +39,7 @@ impl FoamContainer {
         }
     }
 
-    // Attempst to refill container
+    // Attempt to refill container
     fn refill(
         &mut self,
         refill_req_monitor: Arc<(Mutex<ContainerMessage>, Condvar)>,
@@ -54,7 +54,7 @@ impl FoamContainer {
         let (res_lock, res_cvar) = &*refill_res_monitor;
         if let Ok(message) = self.wait(res_lock, res_cvar) {
             if message.get_amount() == FINISH_FLAG {
-                println!("[foam container] - out of foam");
+                println!("[foam container] - milk container out of milk");
                 self.capacity = FINISH_FLAG
             } else {
                 println!("[foam container] - refilling ");
@@ -72,6 +72,7 @@ impl FoamContainer {
         sem: Arc<Semaphore>,
     ) -> Result<i32, String> {
         if self.capacity == NO_MORE {
+            println!("[foam container] - sending refill request to milk container");
             sem.acquire();
             self.refill(refill_req_monitor.clone(), refill_res_monitor.clone());
             return self.consume(refill_req_monitor, refill_res_monitor, amount, sem);
@@ -166,7 +167,7 @@ impl Container for FoamContainer {
                         }
                     }
                     ContainerMessageType::KillRequest => {
-                        println!("[foam container] - dispenser sending FINISHING FLAG",);
+                        println!("[foam container] - receiving FINISHING FLAG",);
                         self.notify_end_message(self.refill_req_monitor.clone());
                         container_message_response =
                             ContainerMessage::new(FINISH_FLAG, ContainerMessageType::KillRequest)
@@ -176,12 +177,11 @@ impl Container for FoamContainer {
                 self.notify(res_lock, res_cvar, container_message_response);
 
                 if matches!(res.get_type(), ContainerMessageType::KillRequest) {
-                    println!("[milk container] - finishing ");
+                    println!("[milk container] - Kill Request - Killing thread  ");
                     break;
                 }
                 self.save_status(d_mutex.clone());
                 bussy_sem.release();
-                println!("[milk container] - released sem");
             }
         }
     }

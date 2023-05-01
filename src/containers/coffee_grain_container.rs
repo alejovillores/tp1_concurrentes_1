@@ -30,7 +30,6 @@ impl CoffeeGrainContainer {
     #[allow(dead_code)]
     fn refill(&mut self, amount: i32) -> i32 {
         if self.capacity >= amount && amount.is_positive() {
-            println!("[coffee grain container] - amount valid");
             self.capacity -= amount;
             return amount;
         };
@@ -73,7 +72,7 @@ impl CoffeeGrainContainer {
         if let Ok(mut old_resourse) = lock.lock() {
             *old_resourse = resourse;
             println!(
-                "[coffee grain container] - send new coffee grain amount: {} request",
+                "[coffee grain container] - send new coffee grain amount: {} response",
                 old_resourse.get_amount()
             );
             old_resourse.ready_to_read();
@@ -109,7 +108,7 @@ impl Container for CoffeeGrainContainer {
                 let container_message_response: ContainerMessage = match res.get_type() {
                     ContainerMessageType::ResourseRequest => {
                         println!(
-                            "[coffee grain container] - attempting to consume amount {}",
+                            "[coffee grain container] - receving refill request {}",
                             res.get_amount()
                         );
                         let amounte_consumed = self.refill(res.get_amount());
@@ -119,7 +118,7 @@ impl Container for CoffeeGrainContainer {
                         )
                     }
                     ContainerMessageType::KillRequest => {
-                        println!("[coffee grain container] - dispenser sending FINISHING FLAG",);
+                        println!("[coffee grain container] - receiving FINISHING FLAG",);
                         ContainerMessage::new(FINISH_FLAG, ContainerMessageType::KillRequest)
                     }
                 };
@@ -136,12 +135,11 @@ impl Container for CoffeeGrainContainer {
                 }
 
                 if matches!(res.get_type(), ContainerMessageType::KillRequest) {
-                    println!("[coffee grain container] - finishing ");
+                    println!("[coffee grain container] - Kill Request - Killing thread ");
                     break;
                 }
                 self.save_status(d_mutex.clone());
                 bussy_sem.release();
-                println!("[coffee grain container] - released sem");
             }
         }
     }

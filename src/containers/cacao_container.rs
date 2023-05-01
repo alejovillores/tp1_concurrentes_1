@@ -63,7 +63,7 @@ impl CacaoContainer {
             *resourse = res;
             resourse.ready_to_read();
             if resourse.get_amount() == FINISH_FLAG {
-                println!("[cacao container] - notifying dispenser FINISHING FLAG ",);
+                println!("[cacao container] - notifying FINISHING FLAG ");
             } else {
                 println!(
                     "[cacao container] - sending {} units to dispenser",
@@ -116,7 +116,7 @@ impl Container for CacaoContainer {
                         }
                     }
                     ContainerMessageType::KillRequest => {
-                        println!("[cacao container] - dispenser sending FINISHING FLAG",);
+                        println!("[cacao container] - receiving FINISHING FLAG",);
                         container_message_response =
                             ContainerMessage::new(FINISH_FLAG, ContainerMessageType::KillRequest)
                     }
@@ -129,13 +129,12 @@ impl Container for CacaoContainer {
                     println!("[cacao container] - CAPACITY LOWER THAN 20% ")
                 }
                 if matches!(res.get_type(), ContainerMessageType::KillRequest) {
-                    println!("[cacao container] - finishing ");
+                    println!("[cacao container] - Kill Request - Killing thread ");
                     break;
                 }
 
                 self.save_status(d_mutex.clone());
                 bussy_sem.release();
-                println!("[cacao container] - released sem")
             }
         }
     }

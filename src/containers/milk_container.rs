@@ -63,7 +63,10 @@ impl MilkContainer {
             if resourse.get_amount() == FINISH_FLAG {
                 println!("[milk container] - notifying FINISHING FLAG ",);
             } else {
-                println!("[milk container] - sending {} units", resourse.get_amount(),);
+                println!(
+                    "[milk container] - sending {} units of milk",
+                    resourse.get_amount(),
+                );
             }
             cvar.notify_all();
         }
@@ -102,10 +105,6 @@ impl Container for MilkContainer {
                 let container_message_response: ContainerMessage;
                 match res.get_type() {
                     ContainerMessageType::ResourseRequest => {
-                        println!(
-                            "[milk container] - attempting to consume amount {}",
-                            res.get_amount()
-                        );
                         if let Ok(amounte_consumed) = self.consume(res.get_amount()) {
                             container_message_response = ContainerMessage::new(
                                 amounte_consumed,
@@ -120,7 +119,7 @@ impl Container for MilkContainer {
                         }
                     }
                     ContainerMessageType::KillRequest => {
-                        println!("[milk container] - dispenser sending FINISHING FLAG",);
+                        println!("[milk container] - receiving FINISHING FLAG",);
                         container_message_response =
                             ContainerMessage::new(FINISH_FLAG, ContainerMessageType::KillRequest)
                     }
@@ -131,7 +130,7 @@ impl Container for MilkContainer {
                     println!("[milk container] - CAPACITY LOWER THAN 20% ")
                 }
                 if matches!(res.get_type(), ContainerMessageType::KillRequest) {
-                    println!("[milk container] - finishing ");
+                    println!("[milk container] - Kill Request - Killing thread");
                     break;
                 }
                 self.save_status(d_mutex.clone());

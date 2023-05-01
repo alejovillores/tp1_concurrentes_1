@@ -7,6 +7,15 @@ use std::{
 
 use super::{ingredients::Ingredients, order_manager::OrderManager};
 
+const INGREDIENTS: [Ingredients; 6] = [
+    Ingredients::CoffeGrain,
+    Ingredients::Coffee,
+    Ingredients::Milk,
+    Ingredients::Water,
+    Ingredients::Foam,
+    Ingredients::Cacao,
+];
+
 pub struct StatsPresenter {
     time: u64,
 }
@@ -14,6 +23,17 @@ pub struct StatsPresenter {
 impl StatsPresenter {
     pub fn new(time: u64) -> Self {
         Self { time }
+    }
+
+    fn present_machine_stats(&self, orders_made: i32, orders_unmade: usize) {
+        println!("\n \t---------------- Machine Stats -------------");
+        println!("\tCOFFE ORDERS MADE:    {}", orders_made);
+        println!("\tCOFFE ORDERS IN QEUE: {}", orders_unmade);
+        println!("\n \t---------------- Containers Stats -------------");
+    }
+
+    fn present_ingredient(&self, ingredient: Ingredients, amount: &i32) {
+        println!("\t {:?} container units: {}", ingredient, amount);
     }
 
     pub fn start(
@@ -29,46 +49,12 @@ impl StatsPresenter {
                 let orders_unmade = order_manager.orders_in_qeue();
 
                 if let Ok(container_data) = container_data.lock() {
-                    println!("\n \t---------------- Machine Stats -------------");
-                    println!("\tCOFFE ORDERS MADE:    {}", orders_made);
-                    println!("\tCOFFE ORDERS IN QEUE: {}", orders_unmade);
-                    println!("\n \t---------------- Containers Stats -------------");
-                    println!(
-                        "\tCOFFE CONTAINER UNITS: {}",
-                        container_data
-                            .get(&Ingredients::Coffee)
-                            .expect("NO COFFE DATA")
-                    );
-                    println!(
-                        "\tCOFFE CONTAINER GRAIN UNITS: {}",
-                        container_data
-                            .get(&Ingredients::CoffeGrain)
-                            .expect("NO COFFE GRAIN DATA")
-                    );
-                    println!(
-                        "\tMILK CONTAINER UNITS: {}",
-                        container_data
-                            .get(&Ingredients::Milk)
-                            .expect("NO MILK DATA")
-                    );
-                    println!(
-                        "\tCACAO CONTAINER UNITS: {}",
-                        container_data
-                            .get(&Ingredients::Cacao)
-                            .expect("NO CACAO DATA")
-                    );
-                    println!(
-                        "\tFOAM CONTAINER UNITS: {}",
-                        container_data
-                            .get(&Ingredients::Foam)
-                            .expect("NO FOAM DATA")
-                    );
-                    println!(
-                        "\tWATER CONTAINER UNITS: {}",
-                        container_data
-                            .get(&Ingredients::Water)
-                            .expect("NO WATER DATA")
-                    );
+                    self.present_machine_stats(orders_made, orders_unmade);
+
+                    for i in INGREDIENTS.iter().copied() {
+                        let amount = container_data.get(&i).expect("NO COFFE DATA");
+                        self.present_ingredient(i, amount)
+                    }
                     println!("\t------------------------------------\n");
                 }
 

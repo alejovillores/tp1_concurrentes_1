@@ -4,7 +4,6 @@ const DEFAULT_DISPENSERS: i32 = 1;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    println!("args: {:?}", args);
     match args.len() {
         2 => {
             let path: &String = &args[1].to_string();

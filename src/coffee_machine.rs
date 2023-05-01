@@ -178,12 +178,12 @@ impl CoffeMachine {
                         .to_owned();
                     let res = self
                         .res_monitors
-                        .get(&Ingredients::CoffeGrain)
+                        .get(&Ingredients::Milk)
                         .expect("MILK RES MONITOR NOT FOUND")
                         .to_owned();
                     let s = self
                         .bussy_sem
-                        .get(&Ingredients::CoffeGrain)
+                        .get(&Ingredients::Milk)
                         .expect("MILK SEMAPHORE NOT FOUND")
                         .to_owned();
                     containers.push(thread::spawn(move || {
@@ -229,7 +229,7 @@ impl CoffeMachine {
             new_ticket.ready_to_read();
             ticket_vec.add(new_ticket);
             cvar.notify_all();
-            println!("[coffee machine] - send new order");
+            println!("[coffee machine] - notify new order");
             return Ok(());
         };
         Err("[error] - ticket monitor failed".to_string())
@@ -260,6 +260,7 @@ impl CoffeMachine {
     }
 
     fn kill_containers(&self, containers: Vec<JoinHandle<()>>) {
+        println!("[global]  - notifing containers to stop");
         for i in INGREDIENTS.iter() {
             if let Some(sem) = self.bussy_sem.get(i) {
                 sem.acquire();
@@ -285,12 +286,12 @@ impl CoffeMachine {
     pub fn start(&mut self) {
         let order_manager = Arc::new((Mutex::new(OrderManager::new()), Condvar::new()));
         let d_mutex = Arc::new(Mutex::new(self.data_mutex.clone()));
-        let _containers = self.init_containers(d_mutex.clone());
+        let containers = self.init_containers(d_mutex.clone());
         let mut dispensers = self.init_dispensers(order_manager.clone());
         let mut order_reader = OrderReader::new(self.path.clone());
         order_reader
             .read_json()
-            .expect("[cofee machine] - Fail reading json file");
+            .expect("[cofee machine] - Failed reading json file");
         self.init_stat_presenter(&mut dispensers, order_manager.clone(), d_mutex);
 
         let (order_lock, cvar) = &*order_manager;
@@ -304,14 +305,13 @@ impl CoffeMachine {
                     }
                 },
                 None => {
-                    println!("[coffee machine] - no more orders.");
+                    println!("[coffee machine] - no more orders to process.");
                     break;
                 }
             }
         }
-        println!("[coffe machine] - waiting for dispenseres be killed .");
         self.kill_dispensers(dispensers);
-        self.kill_containers(_containers);
+        self.kill_containers(containers);
     }
 }
 

@@ -6,6 +6,16 @@
 - **Autor**: [Alejo Villores](https://github.com/alejovillores)
 - **Fecha** de entrega: 3/5/2023
 
+
+### _Supuestos_
+
+* Los valores de los ingredientes tienen un rango [0 - 10]
+* El contenedor de cafe molido recarga su ingrediente cuando queda vacio
+* El contendor de espuma recarga su ingrediente cuando queda vacio
+* La maquina se apaga cuando procesa todos los pedidos del archivo.
+
+
+
 ### _Modelo y Resolución_
 
 **[deprecated]**\

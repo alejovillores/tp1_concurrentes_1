@@ -46,8 +46,6 @@ impl Dispenser {
         let mut status = FINISH_FLAG;
         for ingredient in INGREDIENTS.iter().copied() {
             match ingredient {
-                Ingredients::Milk => println!("[dispenser {}] no milk", self.id),
-                Ingredients::Foam => println!("[dispenser {}] no foam", self.id),
                 Ingredients::CoffeGrain => {}
                 _ => {
                     let amount = order.get_ingredient_amount(ingredient);
@@ -94,7 +92,7 @@ impl Dispenser {
         if let Some(monitor) = req_monitors.get(&ingredient) {
             let (lock_req, cvar_req) = monitor.as_ref();
             println!(
-                "[dispenser {}] - send amount of {} , {:?} units to container",
+                "[dispenser {}] - send amount of {} to {:?} container",
                 self.id,
                 resourse.get_amount(),
                 ingredient
@@ -202,8 +200,10 @@ impl Dispenser {
                     order,
                     containers_sem,
                 );
-
-                println!("[dispenser {} ] - dispenser finished order ", self.id);
+                println!(
+                    "[dispenser {} ] - dispenser finished processing order ",
+                    self.id
+                );
             } else {
                 println!("[dispenser {} ] - killing dispenser ", self.id);
                 break;

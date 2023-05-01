@@ -52,10 +52,10 @@ impl CoffeContainer {
         let (res_lock, res_cvar) = &*refill_res_monitor;
         if let Ok(message) = self.wait(res_lock, res_cvar) {
             if message.get_amount() == FINISH_FLAG {
-                println!("[coffee container] - out of coffe");
+                println!("[coffee container] - coffee grain container out of coffe");
                 self.capacity = FINISH_FLAG
             } else {
-                println!("[coffee container] - refilling ");
+                println!("[coffee container] - refilling container");
                 self.capacity += message.get_amount();
                 println!("[coffee container] - refill complete");
             }
@@ -100,7 +100,7 @@ impl CoffeContainer {
                 return Ok(result);
             }
         };
-        Err("[error] - milk container  monitor failed".to_string())
+        Err("[error] - coffee container  monitor failed".to_string())
     }
 
     // Notify container o dispenser about new resourse avaliable
@@ -164,7 +164,7 @@ impl Container for CoffeContainer {
                         }
                     }
                     ContainerMessageType::KillRequest => {
-                        println!("[coffee container] - dispenser sending FINISHING FLAG",);
+                        println!("[coffee container] - receiving FINISHING FLAG",);
                         self.notify_end_message(self.refill_req_monitor.clone());
                         container_message_response =
                             ContainerMessage::new(FINISH_FLAG, ContainerMessageType::KillRequest)
@@ -174,12 +174,11 @@ impl Container for CoffeContainer {
                 self.notify(res_lock, res_cvar, container_message_response);
 
                 if matches!(res.get_type(), ContainerMessageType::KillRequest) {
-                    println!("[milk container] - finishing ");
+                    println!("[coffee container] - Kill Request - Killing thread ");
                     break;
                 }
                 self.save_status(d_mutex.clone());
                 bussy_sem.release();
-                println!("[milk container] - released sem");
             }
         }
     }
